@@ -6,7 +6,6 @@ import consts
 
 def describe_image(image: bytes) -> str:
     image_b64 = base64.b64encode(image).decode()
-
     prompt = """
 You are converting a PDF into Markdown.
 Analyze this image and produce a Markdown deep description.
@@ -36,7 +35,5 @@ Return ONLY Markdown.
         },
         timeout=300,
     )
-
     r.raise_for_status()
-
     return r.json()["response"].strip()

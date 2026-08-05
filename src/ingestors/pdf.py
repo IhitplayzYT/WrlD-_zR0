@@ -1,5 +1,7 @@
 import fitz  # PyMuPDF
 from tabulate import tabulate
+import polars as pl
+import re
 
 def extract_pdf(pdf_path: str,describe_image,image_format: str = "png",) -> str:
     """
@@ -44,3 +46,34 @@ def extract_pdf(pdf_path: str,describe_image,image_format: str = "png",) -> str:
             description = describe_image(image_bytes)
             output.append(f"\n[Image {image_idx}]\n"f"{description}\n")
     return "\n".join(output)
+
+def ingest_pdf(pdf_path: str) -> pl.DataFrame:
+    """
+    PDF Ingestor - extracts numeric data from tables and returns DataFrame with 'price' column
+    """
+    doc = fitz.open(pdf_path)
+    prices = []
+    for page in doc:
+        try:
+            tables = page.find_tables()
+            for table in tables.tables:
+                data = table.extract()
+                if data and len(data) > 1:
+                    for row in data[1:]:
+                        for cell in row:
+                            # Try to extract numeric values from cells
+                            # Remove currency symbols, commas, etc.
+                            cleaned = re.sub(r'[^\d.]', '', str(cell))
+                            if cleaned and cleaned.count('.') <= 1:
+                                try:
+                                    price = float(cleaned)
+                                    if price > 0:  # Only positive prices
+                                        prices.append(price)
+                                except ValueError:
+                                    continue
+        except Exception:
+            pass
+    doc.close()
+    if not prices:
+        raise ValueError("No numeric price data found in PDF tables")
+    return pl.DataFrame({"price": prices})
