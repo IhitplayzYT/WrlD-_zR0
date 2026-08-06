@@ -1,11 +1,11 @@
 # ==============================
 # Core Numerical Computing
 # ==============================
-numpy==2.3.2
+numpy>=2.4
 scipy==1.16.1
 polars==1.33.1
-pyarrow==21.0.0
-pandas==2.3.2
+pyarrow>=21.0
+pandas>=2.3
 
 # ==============================
 # PDF Extraction 
@@ -30,13 +30,13 @@ gymnasium==1.2.0
 stable-baselines3==2.7.0
 shimmy==2.0.0
 ale-py==0.11.2
-pettingzoo==1.25.0
+pettingzoo>=1.24,<1.27
 pygame==2.6.1
 
 # ==============================
 # Scientific Computing
 # ==============================
-scikit-learn==1.7.1
+scikit-learn
 statsmodels==0.14.5
 
 # ==============================

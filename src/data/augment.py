@@ -153,7 +153,17 @@ class Augmenter:
             current_data = episode_data
         return episodes
 
+def random_episode_swap(df: List[List[float]]) -> List[List[float]]:
+    l = len(df)
+    n_swap = random.randint(1,l//4)
+    ret = df.copy()
+    for _ in range(n_swap):
+        i = random.randint(0,l)
+        j = random.randint(0,l)
+        ret[i],ret[j] = ret[j],ret[i]
+    return ret
 
+    
 def augment_stock_data(df: pl.DataFrame, n_episodes: int, episode_day_len: int, each_day_movements: int) -> List[List[float]]:
     """
     Main function to augment stock data
@@ -168,4 +178,4 @@ def augment_stock_data(df: pl.DataFrame, n_episodes: int, episode_day_len: int, 
         List of episode data chunks, each containing price data
     """
     augmenter = Augmenter(df, n_episodes, episode_day_len, each_day_movements)
-    return augmenter.generate_all_episodes()
+    return random_episode_swap(augmenter.generate_all_episodes())

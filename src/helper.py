@@ -19,7 +19,7 @@ class CLI:
         self.episode_day_len = 200
         self.each_day_movements = 10 # Everyday stock will move 10 times (i.e simulate stock movement occur every second)
         self.initial_amount = 1000
-        self.stock_data = [] # Optional csv to emulate stock price movement data
+        self.stock_data = {} # Optional csv to emulate stock price movement data
         self.event_probs = p_Event()
         self.news = False 
         self.black_bx_dur = 5
@@ -42,6 +42,9 @@ class CLI:
             elif i.startswith("-amnt=") or i.startswith("--initial_amnt="):
                 self.initial_amount = int(i[i.find("=")+1:])
             elif i.startswith("-stock=") or i.startswith("--stock_data="):
+                i = i[i.find("=")+1:]
+                k,_,v = i.partition(":")
+                self.stock_data[k] = v
                 self.stock_data(i[i.find("=")+1:])
             elif i.startswith("-p_good=") or i.startswith("--prob_good="):
                 self.event_probs.p_good = float(i[i.find("=")+1:])
