@@ -24,6 +24,7 @@ class CLI:
         self.news = False 
         self.black_bx_dur = 5
         self.black_bx_freq = 20
+        self.event_file = None  # Path to JSON file with custom events
     
     def Parse(self):
         for i in sys.argv:
@@ -58,6 +59,8 @@ class CLI:
                 self.black_bx_dur = int(i[i.find("=")+1:])
             elif i.startswith("-bb_freq=") or i.startswith("--bbox_frequency="):
                 self.black_bx_freq = int(i[i.find("=")+1:])
+            elif i.startswith("-event=") or i.startswith("-evnt=") or i.startswith("--event="):
+                self.event_file = i[i.find("=")+1:]
             else:
                 Help()
 

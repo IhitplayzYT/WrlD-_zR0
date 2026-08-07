@@ -1,0 +1,1579 @@
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Dict, List, Optional, Callable
+import random
+import time
+import json
+from pathlib import Path
+
+
+class EventType(Enum):
+    ECONOMIC = "economic"
+    EARNINGS = "earnings"
+    CENTRAL_BANK = "central_bank"
+    POLITICAL = "political"
+    NATURAL_DISASTER = "natural_disaster"
+    WAR = "war"
+    TECHNOLOGY = "technology"
+    COMPANY = "company"
+    MARKET_STRUCTURE = "market_structure"
+    RUMOR = "rumor"
+    PANIC = "panic"
+
+
+@dataclass
+class EventEffects:
+    price_drift: float = 0.0              # expected directional movement
+    volatility_multiplier: float = 1.0
+    liquidity_multiplier: float = 1.0
+    spread_multiplier: float = 1.0
+    
+    buy_pressure: float = 0.0
+    sell_pressure: float = 0.0
+    
+    volume_multiplier: float = 1.0
+    
+    market_confidence: float = 1.0
+    
+    sector_effects: Dict[str, float] = field(default_factory=dict)
+    asset_effects: Dict[int, float] = field(default_factory=dict)
+    
+    correlation_change: float = 0.0
+    
+    jump_probability: float = 0.0
+    jump_mean: float = 0.0
+    jump_std: float = 0.0
+    
+    mean_reversion_strength: float = 0.0
+    
+    order_cancel_rate: float = 0.0
+    order_arrival_rate: float = 0.0
+
+
+@dataclass
+class EventCondition:
+    min_price: Optional[float] = None
+    max_price: Optional[float] = None
+    min_volatility: Optional[float] = None
+    max_volatility: Optional[float] = None
+    min_market_cap: Optional[float] = None
+    max_market_cap: Optional[float] = None
+    required_agents: Optional[int] = None
+    forbidden_agents: Optional[List[str]] = None
+    custom_condition: Optional[Callable[[Dict], bool]] = None
+
+
+@dataclass
+class MarketEvent:
+    id: int
+    name: str
+    category: EventType
+    probability: float
+    
+    duration: int          # timesteps
+    cooldown: int
+    priority: int
+    
+    conditions: EventCondition = field(default_factory=EventCondition)
+    effects: EventEffects = field(default_factory=EventEffects)
+    
+    is_active: bool = False
+    start_time: Optional[float] = None
+    end_time: Optional[float] = None
+    last_triggered: Optional[float] = None
+    
+    def check_conditions(self, market_state: Dict) -> bool:
+        """Check if event conditions are met"""
+        if self.conditions.min_price is not None:
+            if market_state.get('current_price', 0) < self.conditions.min_price:
+                return False
+        
+        if self.conditions.max_price is not None:
+            if market_state.get('current_price', float('inf')) > self.conditions.max_price:
+                return False
+        
+        if self.conditions.min_market_cap is not None:
+            if market_state.get('market_cap', 0) < self.conditions.min_market_cap:
+                return False
+        
+        if self.conditions.max_market_cap is not None:
+            if market_state.get('market_cap', float('inf')) > self.conditions.max_market_cap:
+                return False
+        
+        if self.conditions.custom_condition is not None:
+            if not self.conditions.custom_condition(market_state):
+                return False
+        
+        return True
+    
+    def activate(self):
+        """Activate the event"""
+        self.is_active = True
+        self.start_time = time.time()
+        self.end_time = self.start_time + self.duration
+    
+    def deactivate(self):
+        """Deactivate the event"""
+        self.is_active = False
+        self.last_triggered = time.time()
+        self.start_time = None
+        self.end_time = None
+    
+    def is_expired(self) -> bool:
+        """Check if event has expired"""
+        if not self.is_active or self.end_time is None:
+            return False
+        return time.time() > self.end_time
+    
+    def can_trigger(self, market_state: Dict) -> bool:
+        """Check if event can be triggered"""
+        if self.is_active:
+            return False
+        
+        if self.last_triggered is not None:
+            cooldown_remaining = (self.last_triggered + self.cooldown) - time.time()
+            if cooldown_remaining > 0:
+                return False
+        
+        return self.check_conditions(market_state)
+
+
+class EventManager:
+    def __init__(self):
+        self.events: List[MarketEvent] = []
+        self._event_counter = 0
+        self._initialize_default_events()
+    
+    def _generate_event_id(self) -> int:
+        self._event_counter += 1
+        return self._event_counter
+    
+    def _initialize_default_events(self):
+        """Initialize default market events"""
+        
+        # Economic events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Interest Rate Hike",
+            category=EventType.ECONOMIC,
+            probability=0.002,
+            duration=50,
+            cooldown=100,
+            priority=2,
+            effects=EventEffects(
+                price_drift=-0.02,
+                volatility_multiplier=1.5,
+                market_confidence=0.8,
+                sell_pressure=0.3
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="GDP Growth Report",
+            category=EventType.ECONOMIC,
+            probability=0.001,
+            duration=30,
+            cooldown=80,
+            priority=1,
+            effects=EventEffects(
+                price_drift=0.01,
+                volatility_multiplier=1.2,
+                market_confidence=1.2,
+                buy_pressure=0.2
+            )
+        ))
+        
+        # Earnings events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Positive Earnings Surprise",
+            category=EventType.EARNINGS,
+            probability=0.003,
+            duration=20,
+            cooldown=60,
+            priority=2,
+            effects=EventEffects(
+                price_drift=0.03,
+                volatility_multiplier=2.0,
+                volume_multiplier=1.5,
+                buy_pressure=0.4
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Negative Earnings Surprise",
+            category=EventType.EARNINGS,
+            probability=0.003,
+            duration=20,
+            cooldown=60,
+            priority=2,
+            effects=EventEffects(
+                price_drift=-0.03,
+                volatility_multiplier=2.0,
+                volume_multiplier=1.5,
+                sell_pressure=0.4
+            )
+        ))
+        
+        # Central bank events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Quantitative Easing",
+            category=EventType.CENTRAL_BANK,
+            probability=0.0005,
+            duration=100,
+            cooldown=200,
+            priority=3,
+            effects=EventEffects(
+                price_drift=0.02,
+                volatility_multiplier=0.8,
+                liquidity_multiplier=1.5,
+                market_confidence=1.3,
+                buy_pressure=0.5
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Quantitative Tightening",
+            category=EventType.CENTRAL_BANK,
+            probability=0.0005,
+            duration=100,
+            cooldown=200,
+            priority=3,
+            effects=EventEffects(
+                price_drift=-0.02,
+                volatility_multiplier=1.3,
+                liquidity_multiplier=0.7,
+                market_confidence=0.7,
+                sell_pressure=0.5
+            )
+        ))
+        
+        # Political events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Election Uncertainty",
+            category=EventType.POLITICAL,
+            probability=0.002,
+            duration=40,
+            cooldown=120,
+            priority=2,
+            effects=EventEffects(
+                volatility_multiplier=1.8,
+                market_confidence=0.6,
+                spread_multiplier=1.3
+            )
+        ))
+        
+        # Natural disasters
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Natural Disaster",
+            category=EventType.NATURAL_DISASTER,
+            probability=0.0003,
+            duration=60,
+            cooldown=300,
+            priority=4,
+            effects=EventEffects(
+                price_drift=-0.01,
+                volatility_multiplier=2.5,
+                liquidity_multiplier=0.5,
+                market_confidence=0.5,
+                sell_pressure=0.6,
+                jump_probability=0.1,
+                jump_mean=-0.05,
+                jump_std=0.02
+            )
+        ))
+        
+        # War events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Geopolitical Tension",
+            category=EventType.WAR,
+            probability=0.0008,
+            duration=80,
+            cooldown=250,
+            priority=4,
+            effects=EventEffects(
+                price_drift=-0.015,
+                volatility_multiplier=2.0,
+                market_confidence=0.4,
+                sell_pressure=0.5,
+                jump_probability=0.15,
+                jump_mean=-0.03,
+                jump_std=0.04
+            )
+        ))
+        
+        # Technology events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Tech Breakthrough",
+            category=EventType.TECHNOLOGY,
+            probability=0.002,
+            duration=30,
+            cooldown=90,
+            priority=2,
+            effects=EventEffects(
+                price_drift=0.04,
+                volatility_multiplier=1.5,
+                volume_multiplier=2.0,
+                buy_pressure=0.6
+            )
+        ))
+        
+        # Company events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Stock Buyback Announcement",
+            category=EventType.COMPANY,
+            probability=0.001,
+            duration=25,
+            cooldown=70,
+            priority=2,
+            effects=EventEffects(
+                price_drift=0.015,
+                volatility_multiplier=0.9,
+                buy_pressure=0.7,
+                volume_multiplier=1.3
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Merger Announcement",
+            category=EventType.COMPANY,
+            probability=0.0005,
+            duration=40,
+            cooldown=150,
+            priority=3,
+            effects=EventEffects(
+                price_drift=0.05,
+                volatility_multiplier=2.5,
+                volume_multiplier=3.0,
+                buy_pressure=0.8
+            )
+        ))
+        
+        # Market structure events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Short Squeeze",
+            category=EventType.MARKET_STRUCTURE,
+            probability=0.0015,
+            duration=15,
+            cooldown=100,
+            priority=3,
+            effects=EventEffects(
+                price_drift=0.08,
+                volatility_multiplier=3.0,
+                volume_multiplier=2.5,
+                buy_pressure=0.9,
+                jump_probability=0.2,
+                jump_mean=0.05,
+                jump_std=0.03
+            )
+        ))
+        
+        # Rumor events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Market Rumor",
+            category=EventType.RUMOR,
+            probability=0.04,
+            duration=10,
+            cooldown=30,
+            priority=1,
+            effects=EventEffects(
+                volatility_multiplier=1.3,
+                volume_multiplier=1.2,
+                order_cancel_rate=0.2
+            )
+        ))
+        
+        # Panic events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Market Panic",
+            category=EventType.PANIC,
+            probability=0.0005,
+            duration=20,
+            cooldown=200,
+            priority=5,
+            effects=EventEffects(
+                price_drift=-0.05,
+                volatility_multiplier=4.0,
+                liquidity_multiplier=0.3,
+                market_confidence=0.2,
+                sell_pressure=0.9,
+                jump_probability=0.3,
+                jump_mean=-0.08,
+                jump_std=0.05,
+                order_cancel_rate=0.4
+            ),
+            conditions=EventCondition(
+                custom_condition=lambda state: state.get('volatility', 0) > 0.02
+            )
+        ))
+        
+        # Additional Economic Events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Inflation Spike",
+            category=EventType.ECONOMIC,
+            probability=0.0015,
+            duration=40,
+            cooldown=90,
+            priority=2,
+            effects=EventEffects(
+                price_drift=-0.015,
+                volatility_multiplier=1.4,
+                market_confidence=0.75,
+                sell_pressure=0.25
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Deflation Concerns",
+            category=EventType.ECONOMIC,
+            probability=0.0005,
+            duration=35,
+            cooldown=100,
+            priority=2,
+            effects=EventEffects(
+                price_drift=-0.01,
+                volatility_multiplier=1.3,
+                liquidity_multiplier=0.8,
+                market_confidence=0.85
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Unemployment Report",
+            category=EventType.ECONOMIC,
+            probability=0.002,
+            duration=25,
+            cooldown=70,
+            priority=1,
+            effects=EventEffects(
+                volatility_multiplier=1.6,
+                volume_multiplier=1.3,
+                market_confidence=0.9
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Consumer Confidence Index",
+            category=EventType.ECONOMIC,
+            probability=0.002,
+            duration=20,
+            cooldown=60,
+            priority=1,
+            effects=EventEffects(
+                price_drift=0.005,
+                volatility_multiplier=1.1,
+                buy_pressure=0.15
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Trade Agreement Signed",
+            category=EventType.ECONOMIC,
+            probability=0.0008,
+            duration=60,
+            cooldown=180,
+            priority=3,
+            effects=EventEffects(
+                price_drift=0.025,
+                volatility_multiplier=0.9,
+                market_confidence=1.4,
+                buy_pressure=0.35,
+                volume_multiplier=1.4
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Trade War Escalation",
+            category=EventType.ECONOMIC,
+            probability=0.0005,
+            duration=70,
+            cooldown=200,
+            priority=3,
+            effects=EventEffects(
+                price_drift=-0.025,
+                volatility_multiplier=1.8,
+                market_confidence=0.65,
+                sell_pressure=0.35,
+                spread_multiplier=1.4
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Housing Market Crash",
+            category=EventType.ECONOMIC,
+            probability=0.0003,
+            duration=80,
+            cooldown=300,
+            priority=4,
+            effects=EventEffects(
+                price_drift=-0.03,
+                volatility_multiplier=2.2,
+                liquidity_multiplier=0.6,
+                market_confidence=0.55,
+                sell_pressure=0.45,
+                jump_probability=0.12,
+                jump_mean=-0.06,
+                jump_std=0.03
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Commodity Price Surge",
+            category=EventType.ECONOMIC,
+            probability=0.0012,
+            duration=45,
+            cooldown=100,
+            priority=2,
+            effects=EventEffects(
+                price_drift=0.015,
+                volatility_multiplier=1.5,
+                volume_multiplier=1.6,
+                buy_pressure=0.25
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Currency Devaluation",
+            category=EventType.ECONOMIC,
+            probability=0.0008,
+            duration=55,
+            cooldown=150,
+            priority=3,
+            effects=EventEffects(
+                price_drift=-0.02,
+                volatility_multiplier=1.7,
+                market_confidence=0.7,
+                sell_pressure=0.3,
+                jump_probability=0.08,
+                jump_mean=-0.04,
+                jump_std=0.02
+            )
+        ))
+        
+        # Additional Earnings Events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Beat Analyst Estimates",
+            category=EventType.EARNINGS,
+            probability=0.04,
+            duration=15,
+            cooldown=50,
+            priority=2,
+            effects=EventEffects(
+                price_drift=0.02,
+                volatility_multiplier=1.8,
+                volume_multiplier=1.8,
+                buy_pressure=0.35
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Miss Analyst Estimates",
+            category=EventType.EARNINGS,
+            probability=0.04,
+            duration=15,
+            cooldown=50,
+            priority=2,
+            effects=EventEffects(
+                price_drift=-0.02,
+                volatility_multiplier=1.8,
+                volume_multiplier=1.8,
+                sell_pressure=0.35
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Revenue Guidance Raise",
+            category=EventType.EARNINGS,
+            probability=0.002,
+            duration=25,
+            cooldown=65,
+            priority=2,
+            effects=EventEffects(
+                price_drift=0.025,
+                volatility_multiplier=1.4,
+                buy_pressure=0.3,
+                volume_multiplier=1.4
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Revenue Guidance Cut",
+            category=EventType.EARNINGS,
+            probability=0.002,
+            duration=25,
+            cooldown=65,
+            priority=2,
+            effects=EventEffects(
+                price_drift=-0.025,
+                volatility_multiplier=1.4,
+                sell_pressure=0.3,
+                volume_multiplier=1.4
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Dividend Increase",
+            category=EventType.EARNINGS,
+            probability=0.002,
+            duration=20,
+            cooldown=80,
+            priority=1,
+            effects=EventEffects(
+                price_drift=0.01,
+                volatility_multiplier=0.8,
+                buy_pressure=0.2,
+                volume_multiplier=1.2
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Dividend Cut",
+            category=EventType.EARNINGS,
+            probability=0.0015,
+            duration=20,
+            cooldown=80,
+            priority=2,
+            effects=EventEffects(
+                price_drift=-0.015,
+                volatility_multiplier=1.3,
+                sell_pressure=0.25,
+                volume_multiplier=1.3
+            )
+        ))
+        
+        # Additional Central Bank Events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Emergency Rate Cut",
+            category=EventType.CENTRAL_BANK,
+            probability=0.0003,
+            duration=80,
+            cooldown=250,
+            priority=4,
+            effects=EventEffects(
+                price_drift=0.03,
+                volatility_multiplier=2.0,
+                liquidity_multiplier=1.8,
+                market_confidence=0.9,
+                buy_pressure=0.6,
+                jump_probability=0.15,
+                jump_mean=0.04,
+                jump_std=0.02
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Emergency Rate Hike",
+            category=EventType.CENTRAL_BANK,
+            probability=0.0003,
+            duration=80,
+            cooldown=250,
+            priority=4,
+            effects=EventEffects(
+                price_drift=-0.03,
+                volatility_multiplier=2.0,
+                liquidity_multiplier=0.6,
+                market_confidence=0.6,
+                sell_pressure=0.6,
+                jump_probability=0.15,
+                jump_mean=-0.04,
+                jump_std=0.02
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Forward Guidance Change",
+            category=EventType.CENTRAL_BANK,
+            probability=0.0015,
+            duration=40,
+            cooldown=100,
+            priority=2,
+            effects=EventEffects(
+                volatility_multiplier=1.5,
+                market_confidence=0.85,
+                spread_multiplier=1.2
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Reserve Requirement Change",
+            category=EventType.CENTRAL_BANK,
+            probability=0.0005,
+            duration=50,
+            cooldown=120,
+            priority=2,
+            effects=EventEffects(
+                liquidity_multiplier=0.85,
+                volatility_multiplier=1.3,
+                volume_multiplier=0.9
+            )
+        ))
+        
+        # Additional Political Events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Policy Reform Announcement",
+            category=EventType.POLITICAL,
+            probability=0.0015,
+            duration=35,
+            cooldown=90,
+            priority=2,
+            effects=EventEffects(
+                volatility_multiplier=1.4,
+                volume_multiplier=1.3,
+                market_confidence=1.1
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Regulatory Crackdown",
+            category=EventType.POLITICAL,
+            probability=0.0005,
+            duration=50,
+            cooldown=150,
+            priority=3,
+            effects=EventEffects(
+                price_drift=-0.02,
+                volatility_multiplier=1.8,
+                market_confidence=0.7,
+                sell_pressure=0.35,
+                spread_multiplier=1.3
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Tax Policy Change",
+            category=EventType.POLITICAL,
+            probability=0.002,
+            duration=30,
+            cooldown=100,
+            priority=2,
+            effects=EventEffects(
+                volatility_multiplier=1.3,
+                volume_multiplier=1.2,
+                market_confidence=0.95
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Government Shutdown",
+            category=EventType.POLITICAL,
+            probability=0.0008,
+            duration=45,
+            cooldown=200,
+            priority=3,
+            effects=EventEffects(
+                price_drift=-0.015,
+                volatility_multiplier=1.6,
+                market_confidence=0.75,
+                sell_pressure=0.25
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="International Sanctions",
+            category=EventType.POLITICAL,
+            probability=0.0006,
+            duration=60,
+            cooldown=180,
+            priority=3,
+            effects=EventEffects(
+                price_drift=-0.025,
+                volatility_multiplier=2.0,
+                liquidity_multiplier=0.7,
+                market_confidence=0.6,
+                sell_pressure=0.4
+            )
+        ))
+        
+        # Additional Natural Disaster Events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Earthquake",
+            category=EventType.NATURAL_DISASTER,
+            probability=0.003,
+            duration=50,
+            cooldown=350,
+            priority=4,
+            effects=EventEffects(
+                price_drift=-0.015,
+                volatility_multiplier=2.8,
+                liquidity_multiplier=0.4,
+                market_confidence=0.45,
+                sell_pressure=0.55,
+                jump_probability=0.2,
+                jump_mean=-0.07,
+                jump_std=0.04
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Hurricane",
+            category=EventType.NATURAL_DISASTER,
+            probability=0.0004,
+            duration=55,
+            cooldown=300,
+            priority=4,
+            effects=EventEffects(
+                price_drift=-0.012,
+                volatility_multiplier=2.3,
+                liquidity_multiplier=0.55,
+                market_confidence=0.55,
+                sell_pressure=0.5,
+                jump_probability=0.12,
+                jump_mean=-0.05,
+                jump_std=0.03
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Pandemic Outbreak",
+            category=EventType.NATURAL_DISASTER,
+            probability=0.0002,
+            duration=120,
+            cooldown=500,
+            priority=5,
+            effects=EventEffects(
+                price_drift=-0.04,
+                volatility_multiplier=3.5,
+                liquidity_multiplier=0.3,
+                market_confidence=0.3,
+                sell_pressure=0.7,
+                jump_probability=0.25,
+                jump_mean=-0.1,
+                jump_std=0.06,
+                order_cancel_rate=0.3
+            )
+        ))
+        
+        # Additional War Events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Military Conflict",
+            category=EventType.WAR,
+            probability=0.0006,
+            duration=90,
+            cooldown=300,
+            priority=4,
+            effects=EventEffects(
+                price_drift=-0.025,
+                volatility_multiplier=2.5,
+                market_confidence=0.35,
+                sell_pressure=0.6,
+                jump_probability=0.2,
+                jump_mean=-0.05,
+                jump_std=0.05
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Ceasefire Agreement",
+            category=EventType.WAR,
+            probability=0.0003,
+            duration=40,
+            cooldown=250,
+            priority=3,
+            effects=EventEffects(
+                price_drift=0.02,
+                volatility_multiplier=1.2,
+                market_confidence=1.3,
+                buy_pressure=0.4,
+                volume_multiplier=1.5
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Arms Treaty",
+            category=EventType.WAR,
+            probability=0.0004,
+            duration=50,
+            cooldown=200,
+            priority=3,
+            effects=EventEffects(
+                price_drift=0.015,
+                volatility_multiplier=0.9,
+                market_confidence=1.2,
+                buy_pressure=0.3
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Sanctions Imposed",
+            category=EventType.WAR,
+            probability=0.007,
+            duration=70,
+            cooldown=220,
+            priority=4,
+            effects=EventEffects(
+                price_drift=-0.02,
+                volatility_multiplier=2.2,
+                liquidity_multiplier=0.65,
+                market_confidence=0.5,
+                sell_pressure=0.45
+            )
+        ))
+        
+        # Additional Technology Events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="AI Breakthrough",
+            category=EventType.TECHNOLOGY,
+            probability=0.0012,
+            duration=35,
+            cooldown=100,
+            priority=2,
+            effects=EventEffects(
+                price_drift=0.05,
+                volatility_multiplier=1.8,
+                volume_multiplier=2.5,
+                buy_pressure=0.7,
+                jump_probability=0.1,
+                jump_mean=0.03,
+                jump_std=0.02
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Cybersecurity Breach",
+            category=EventType.TECHNOLOGY,
+            probability=0.0015,
+            duration=25,
+            cooldown=80,
+            priority=2,
+            effects=EventEffects(
+                price_drift=-0.025,
+                volatility_multiplier=2.0,
+                market_confidence=0.7,
+                sell_pressure=0.4,
+                volume_multiplier=1.8
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Product Launch",
+            category=EventType.TECHNOLOGY,
+            probability=0.001,
+            duration=20,
+            cooldown=70,
+            priority=1,
+            effects=EventEffects(
+                price_drift=0.015,
+                volatility_multiplier=1.4,
+                volume_multiplier=1.6,
+                buy_pressure=0.25
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Patent Dispute",
+            category=EventType.TECHNOLOGY,
+            probability=0.0005,
+            duration=30,
+            cooldown=90,
+            priority=2,
+            effects=EventEffects(
+                volatility_multiplier=1.6,
+                market_confidence=0.85,
+                spread_multiplier=1.2
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="5G Rollout",
+            category=EventType.TECHNOLOGY,
+            probability=0.0018,
+            duration=40,
+            cooldown=120,
+            priority=2,
+            effects=EventEffects(
+                price_drift=0.02,
+                volatility_multiplier=1.3,
+                buy_pressure=0.3,
+                volume_multiplier=1.4
+            )
+        ))
+        
+        # Additional Company Events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="CEO Resignation",
+            category=EventType.COMPANY,
+            probability=0.0015,
+            duration=25,
+            cooldown=100,
+            priority=2,
+            effects=EventEffects(
+                price_drift=-0.02,
+                volatility_multiplier=2.2,
+                market_confidence=0.75,
+                sell_pressure=0.35,
+                volume_multiplier=2.0
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="New CEO Appointment",
+            category=EventType.COMPANY,
+            probability=0.0015,
+            duration=20,
+            cooldown=100,
+            priority=1,
+            effects=EventEffects(
+                price_drift=0.01,
+                volatility_multiplier=1.3,
+                market_confidence=1.1,
+                volume_multiplier=1.3
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Accounting Scandal",
+            category=EventType.COMPANY,
+            probability=0.0003,
+            duration=45,
+            cooldown=200,
+            priority=4,
+            effects=EventEffects(
+                price_drift=-0.05,
+                volatility_multiplier=3.0,
+                liquidity_multiplier=0.4,
+                market_confidence=0.4,
+                sell_pressure=0.7,
+                jump_probability=0.25,
+                jump_mean=-0.08,
+                jump_std=0.04
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Acquisition Offer",
+            category=EventType.COMPANY,
+            probability=0.0012,
+            duration=30,
+            cooldown=120,
+            priority=3,
+            effects=EventEffects(
+                price_drift=0.04,
+                volatility_multiplier=2.0,
+                volume_multiplier=2.2,
+                buy_pressure=0.6
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Spin-off Announcement",
+            category=EventType.COMPANY,
+            probability=0.0008,
+            duration=35,
+            cooldown=140,
+            priority=2,
+            effects=EventEffects(
+                price_drift=0.015,
+                volatility_multiplier=1.5,
+                volume_multiplier=1.5,
+                buy_pressure=0.25
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Bankruptcy Filing",
+            category=EventType.COMPANY,
+            probability=0.003,
+            duration=60,
+            cooldown=400,
+            priority=5,
+            effects=EventEffects(
+                price_drift=-0.15,
+                volatility_multiplier=5.0,
+                liquidity_multiplier=0.1,
+                market_confidence=0.1,
+                sell_pressure=0.95,
+                jump_probability=0.5,
+                jump_mean=-0.2,
+                jump_std=0.1,
+                order_cancel_rate=0.6
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Credit Rating Upgrade",
+            category=EventType.COMPANY,
+            probability=0.002,
+            duration=20,
+            cooldown=80,
+            priority=1,
+            effects=EventEffects(
+                price_drift=0.012,
+                volatility_multiplier=0.9,
+                liquidity_multiplier=1.2,
+                market_confidence=1.2,
+                buy_pressure=0.2
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Credit Rating Downgrade",
+            category=EventType.COMPANY,
+            probability=0.002,
+            duration=25,
+            cooldown=80,
+            priority=2,
+            effects=EventEffects(
+                price_drift=-0.018,
+                volatility_multiplier=1.6,
+                liquidity_multiplier=0.8,
+                market_confidence=0.8,
+                sell_pressure=0.3
+            )
+        ))
+        
+        # Additional Market Structure Events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Flash Crash",
+            category=EventType.MARKET_STRUCTURE,
+            probability=0.0003,
+            duration=10,
+            cooldown=200,
+            priority=5,
+            effects=EventEffects(
+                price_drift=-0.1,
+                volatility_multiplier=5.0,
+                liquidity_multiplier=0.2,
+                market_confidence=0.15,
+                sell_pressure=0.95,
+                jump_probability=0.4,
+                jump_mean=-0.15,
+                jump_std=0.08,
+                order_cancel_rate=0.5
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Circuit Breaker Triggered",
+            category=EventType.MARKET_STRUCTURE,
+            probability=0.0004,
+            duration=15,
+            cooldown=180,
+            priority=4,
+            effects=EventEffects(
+                volatility_multiplier=3.5,
+                liquidity_multiplier=0.4,
+                market_confidence=0.5,
+                order_cancel_rate=0.3
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Dark Pool Activity",
+            category=EventType.MARKET_STRUCTURE,
+            probability=0.002,
+            duration=25,
+            cooldown=60,
+            priority=1,
+            effects=EventEffects(
+                volatility_multiplier=1.2,
+                liquidity_multiplier=0.9,
+                volume_multiplier=0.8
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="High Frequency Trading Surge",
+            category=EventType.MARKET_STRUCTURE,
+            probability=0.002,
+            duration=15,
+            cooldown=40,
+            priority=1,
+            effects=EventEffects(
+                volatility_multiplier=1.4,
+                volume_multiplier=1.8,
+                order_arrival_rate=0.5,
+                spread_multiplier=0.8
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Options Expiration",
+            category=EventType.MARKET_STRUCTURE,
+            probability=0.001,
+            duration=5,
+            cooldown=30,
+            priority=1,
+            effects=EventEffects(
+                volatility_multiplier=1.6,
+                volume_multiplier=2.0,
+                buy_pressure=0.15,
+                sell_pressure=0.15
+            )
+        ))
+        
+        # Additional Rumor Events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Insider Trading Rumor",
+            category=EventType.RUMOR,
+            probability=0.002,
+            duration=12,
+            cooldown=40,
+            priority=1,
+            effects=EventEffects(
+                volatility_multiplier=1.5,
+                volume_multiplier=1.4,
+                order_cancel_rate=0.15
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Takeover Speculation",
+            category=EventType.RUMOR,
+            probability=0.0018,
+            duration=15,
+            cooldown=45,
+            priority=1,
+            effects=EventEffects(
+                price_drift=0.015,
+                volatility_multiplier=1.6,
+                volume_multiplier=1.6,
+                buy_pressure=0.25
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Management Leak",
+            category=EventType.RUMOR,
+            probability=0.0015,
+            duration=10,
+            cooldown=35,
+            priority=1,
+            effects=EventEffects(
+                volatility_multiplier=1.4,
+                volume_multiplier=1.3,
+                market_confidence=0.9
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Analyst Upgrade Rumor",
+            category=EventType.RUMOR,
+            probability=0.0022,
+            duration=8,
+            cooldown=30,
+            priority=1,
+            effects=EventEffects(
+                price_drift=0.008,
+                volatility_multiplier=1.2,
+                buy_pressure=0.2,
+                volume_multiplier=1.3
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Analyst Downgrade Rumor",
+            category=EventType.RUMOR,
+            probability=0.0022,
+            duration=8,
+            cooldown=30,
+            priority=1,
+            effects=EventEffects(
+                price_drift=-0.008,
+                volatility_multiplier=1.2,
+                sell_pressure=0.2,
+                volume_multiplier=1.3
+            )
+        ))
+        
+        # Additional Panic Events
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Bank Run",
+            category=EventType.PANIC,
+            probability=0.0004,
+            duration=30,
+            cooldown=250,
+            priority=5,
+            effects=EventEffects(
+                price_drift=-0.08,
+                volatility_multiplier=4.5,
+                liquidity_multiplier=0.2,
+                market_confidence=0.15,
+                sell_pressure=0.95,
+                jump_probability=0.35,
+                jump_mean=-0.12,
+                jump_std=0.07,
+                order_cancel_rate=0.5
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Sovereign Debt Crisis",
+            category=EventType.PANIC,
+            probability=0.003,
+            duration=100,
+            cooldown=400,
+            priority=5,
+            effects=EventEffects(
+                price_drift=-0.06,
+                volatility_multiplier=3.8,
+                liquidity_multiplier=0.25,
+                market_confidence=0.25,
+                sell_pressure=0.8,
+                jump_probability=0.2,
+                jump_mean=-0.1,
+                jump_std=0.06,
+                correlation_change=0.3
+            )
+        ))
+        
+        self.add_event(MarketEvent(
+            id=self._generate_event_id(),
+            name="Contagion Fear",
+            category=EventType.PANIC,
+            probability=0.0006,
+            duration=40,
+            cooldown=180,
+            priority=4,
+            effects=EventEffects(
+                price_drift=-0.04,
+                volatility_multiplier=3.2,
+                liquidity_multiplier=0.35,
+                market_confidence=0.35,
+                sell_pressure=0.7,
+                correlation_change=0.4
+            )
+        ))
+    
+    def add_event(self, event: MarketEvent):
+        """Add a new event to the manager"""
+        self.events.append(event)
+    
+    def remove_event(self, event_id: int):
+        """Remove an event by ID"""
+        self.events = [e for e in self.events if e.id != event_id]
+    
+    def get_event(self, event_id: int) -> Optional[MarketEvent]:
+        """Get an event by ID"""
+        for event in self.events:
+            if event.id == event_id:
+                return event
+        return None
+    
+    def get_events_by_category(self, category: EventType) -> List[MarketEvent]:
+        """Get all events of a specific category"""
+        return [e for e in self.events if e.category == category]
+    
+    def get_active_events(self) -> List[MarketEvent]:
+        """Get all currently active events"""
+        return [e for e in self.events if e.is_active]
+    
+    def update(self, market_state: Dict):
+        """Update event states and trigger new events"""
+        # Deactivate expired events
+        for event in self.events:
+            if event.is_active and event.is_expired():
+                event.deactivate()
+        
+        # Try to trigger new events
+        # Sort by priority (higher priority first)
+        sorted_events = sorted(self.events, key=lambda e: e.priority, reverse=True)
+        
+        for event in sorted_events:
+            if event.can_trigger(market_state):
+                if random.random() < event.probability:
+                    event.activate()
+    
+    def trigger_event(self, event_id: int, market_state: Dict) -> bool:
+        """Manually trigger a specific event"""
+        event = self.get_event(event_id)
+        if event and event.can_trigger(market_state):
+            event.activate()
+            return True
+        return False
+    
+    def get_event_effects(self) -> Dict:
+        """Get combined effects of all active events"""
+        active_events = self.get_active_events()
+        
+        combined_effects = {
+            'price_drift': 0.0,
+            'volatility_multiplier': 1.0,
+            'liquidity_multiplier': 1.0,
+            'spread_multiplier': 1.0,
+            'buy_pressure': 0.0,
+            'sell_pressure': 0.0,
+            'volume_multiplier': 1.0,
+            'market_confidence': 1.0,
+            'jump_probability': 0.0,
+            'jump_mean': 0.0,
+            'jump_std': 0.0,
+            'mean_reversion_strength': 0.0,
+            'order_cancel_rate': 0.0,
+            'order_arrival_rate': 0.0
+        }
+        
+        for event in active_events:
+            effects = event.effects
+            combined_effects['price_drift'] += effects.price_drift
+            combined_effects['volatility_multiplier'] *= effects.volatility_multiplier
+            combined_effects['liquidity_multiplier'] *= effects.liquidity_multiplier
+            combined_effects['spread_multiplier'] *= effects.spread_multiplier
+            combined_effects['buy_pressure'] += effects.buy_pressure
+            combined_effects['sell_pressure'] += effects.sell_pressure
+            combined_effects['volume_multiplier'] *= effects.volume_multiplier
+            combined_effects['market_confidence'] *= effects.market_confidence
+            combined_effects['jump_probability'] = max(combined_effects['jump_probability'], effects.jump_probability)
+            combined_effects['jump_mean'] += effects.jump_mean
+            combined_effects['jump_std'] += effects.jump_std
+            combined_effects['mean_reversion_strength'] += effects.mean_reversion_strength
+            combined_effects['order_cancel_rate'] += effects.order_cancel_rate
+            combined_effects['order_arrival_rate'] += effects.order_arrival_rate
+        
+        return combined_effects
+    
+    def get_event_news(self) -> List[str]:
+        """Get news headlines for active events"""
+        news = []
+        for event in self.get_active_events():
+            news.append(f"EVENT: {event.name} - Impact on market expected")
+        return news
+    
+    def reset(self):
+        """Reset all events"""
+        for event in self.events:
+            event.is_active = False
+            event.start_time = None
+            event.end_time = None
+            event.last_triggered = None
+    
+    def load_events_from_json(self, json_path: str):
+        """Load events from a JSON file"""
+        json_file = Path(json_path)
+        if not json_file.exists():
+            raise FileNotFoundError(f"Event file not found: {json_path}")
+        
+        with open(json_file, 'r') as f:
+            events_data = json.load(f)
+        
+        if isinstance(events_data, dict):
+            events_data = [events_data]
+        
+        for event_data in events_data:
+            try:
+                # Parse event type
+                category_str = event_data.get('category', 'ECONOMIC')
+                category = EventType(category_str.lower())
+                
+                # Parse effects
+                effects_data = event_data.get('effects', {})
+                effects = EventEffects(
+                    price_drift=effects_data.get('price_drift', 0.0),
+                    volatility_multiplier=effects_data.get('volatility_multiplier', 1.0),
+                    liquidity_multiplier=effects_data.get('liquidity_multiplier', 1.0),
+                    spread_multiplier=effects_data.get('spread_multiplier', 1.0),
+                    buy_pressure=effects_data.get('buy_pressure', 0.0),
+                    sell_pressure=effects_data.get('sell_pressure', 0.0),
+                    volume_multiplier=effects_data.get('volume_multiplier', 1.0),
+                    market_confidence=effects_data.get('market_confidence', 1.0),
+                    sector_effects=effects_data.get('sector_effects', {}),
+                    asset_effects=effects_data.get('asset_effects', {}),
+                    correlation_change=effects_data.get('correlation_change', 0.0),
+                    jump_probability=effects_data.get('jump_probability', 0.0),
+                    jump_mean=effects_data.get('jump_mean', 0.0),
+                    jump_std=effects_data.get('jump_std', 0.0),
+                    mean_reversion_strength=effects_data.get('mean_reversion_strength', 0.0),
+                    order_cancel_rate=effects_data.get('order_cancel_rate', 0.0),
+                    order_arrival_rate=effects_data.get('order_arrival_rate', 0.0)
+                )
+                
+                # Parse conditions
+                conditions_data = event_data.get('conditions', {})
+                conditions = EventCondition(
+                    min_price=conditions_data.get('min_price'),
+                    max_price=conditions_data.get('max_price'),
+                    min_volatility=conditions_data.get('min_volatility'),
+                    max_volatility=conditions_data.get('max_volatility'),
+                    min_market_cap=conditions_data.get('min_market_cap'),
+                    max_market_cap=conditions_data.get('max_market_cap'),
+                    required_agents=conditions_data.get('required_agents'),
+                    forbidden_agents=conditions_data.get('forbidden_agents'),
+                    custom_condition=None  # Custom conditions cannot be serialized
+                )
+                
+                # Create event
+                event = MarketEvent(
+                    id=self._generate_event_id(),
+                    name=event_data.get('name', 'Custom Event'),
+                    category=category,
+                    probability=event_data.get('probability', 0.01),
+                    duration=event_data.get('duration', 30),
+                    cooldown=event_data.get('cooldown', 60),
+                    priority=event_data.get('priority', 2),
+                    conditions=conditions,
+                    effects=effects
+                )
+                
+                self.add_event(event)
+                
+            except Exception as e:
+                print(f"Warning: Failed to load event {event_data.get('name', 'unknown')}: {e}")
+                continue

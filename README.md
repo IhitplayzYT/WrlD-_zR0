@@ -16,5 +16,13 @@ Some models will not be allowed to interact with stock market on a rare random d
 The models can also be in rare occasions killed/blocked from investing for long burst duration as a very rare ocassion to add extra volatility and incertainity 
 If time permits a multi stock simulation would be built so if some stock is interdependetn on another or If one stock is doing bad the model can adapt to a different Portfolio
 Each day will be modelled to be 1-2 mins long with a max participants of 20 models to take decisions for today
+Use order books to simulate real stock price movement(Use a BtreeMap) 
+Compare the movement stock price with the data stock price to see effects of model interacting with Stock Market
+Use cross episode rewards using streaks,episode results
+Use JSON based logging 
+Save the Model Params for fast recreation
+Build model traits for each investor
+Use timestamps[Some investors are allowed to invest in the first m stock movements of the day some the next n and ...]
+Use the SP movements and build a Options pricing graph to see how would an option be priced at each instance
+Later add the feature of options
 ```
-
