@@ -1,0 +1,11 @@
+# Minimal requirements for integration testing
+numpy>=1.25.2
+scipy>=1.14.0
+polars>=1.0
+pyarrow>=21.0
+pandas>=2.0
+gymnasium>=1.0
+stable-baselines3>=2.0
+pettingzoo>=1.24
+torch>=2.0
+sortedcontainers>=2.0
