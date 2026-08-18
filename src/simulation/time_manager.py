@@ -1,6 +1,26 @@
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
+from enum import Enum
+import random
+from datetime import datetime, timedelta
+
+
+class MarketSession(Enum):
+    """Market trading sessions"""
+    PRE_MARKET = "pre_market"
+    REGULAR = "regular"
+    AFTER_HOURS = "after_hours"
+    CLOSED = "closed"
+
+
+class TimeZone(Enum):
+    """Time zones for global markets"""
+    EST = "est"  # Eastern Standard Time
+    PST = "pst"  # Pacific Standard Time
+    GMT = "gmt"  # Greenwich Mean Time
+    JST = "jst"  # Japan Standard Time
+    CET = "cet"  # Central European Time
 
 
 @dataclass
@@ -11,6 +31,8 @@ class AgentTimeRestriction:
     is_blocked: bool = False
     block_remaining: int = 0
     block_reason: Optional[str] = None
+    performance_score: float = 0.5  # Track performance for dynamic adjustment
+    adjustment_history: List[Tuple[int, int]] = field(default_factory=list)  # History of window adjustments
 
 
 class TimeManager:
@@ -29,13 +51,19 @@ class TimeManager:
         movements_per_day: int = 10,
         black_box_duration: int = 5,
         black_box_frequency: int = 20,
-        max_agents: int = 20
+        max_agents: int = 20,
+        enable_dynamic_adjustment: bool = True,
+        enable_market_sessions: bool = True,
+        timezone: TimeZone = TimeZone.EST
     ):
         self.day_duration_seconds = day_duration_seconds
         self.movements_per_day = movements_per_day
         self.black_box_duration = black_box_duration
         self.black_box_frequency = black_box_frequency
         self.max_agents = max_agents
+        self.enable_dynamic_adjustment = enable_dynamic_adjustment
+        self.enable_market_sessions = enable_market_sessions
+        self.timezone = timezone
         
         # Time tracking
         self.current_day = 0
@@ -52,9 +80,21 @@ class TimeManager:
         # Agent time restrictions
         self.agent_restrictions: Dict[str, AgentTimeRestriction] = {}
         
+        # Market session tracking
+        self.current_session = MarketSession.CLOSED
+        self.session_movements = {
+            MarketSession.PRE_MARKET: (0, 2),  # First 2 movements
+            MarketSession.REGULAR: (2, 8),     # Middle 6 movements
+            MarketSession.AFTER_HOURS: (8, 10)  # Last 2 movements
+        }
+        
         # Rare event probabilities
         self.block_probability = 0.001  # 0.1% chance per step
         self.kill_probability = 0.0001  # 0.01% chance per step (very rare)
+        
+        # Performance tracking for dynamic adjustment
+        self.agent_performance_history: Dict[str, List[float]] = {}
+        self.adjustment_frequency = 50  # Adjust windows every 50 steps
     
     def start_simulation(self):
         """Start the simulation timer"""
@@ -69,14 +109,38 @@ class TimeManager:
         self.current_movement += 1
         self.total_steps += 1
         
+        # Update market session
+        if self.enable_market_sessions:
+            self.current_session = self._get_current_session()
+        
+        # Check for dynamic adjustment
+        if self.enable_dynamic_adjustment and self.total_steps % self.adjustment_frequency == 0:
+            self._adjust_time_windows()
+        
         # Check if day has ended
         if self.current_movement >= self.movements_per_day:
             self.current_movement = 0
             self.current_day += 1
             self.day_start_time = time.time()
+            self.current_session = MarketSession.CLOSED
             return True
         
         return False
+    
+    def _get_current_session(self) -> MarketSession:
+        """Determine current market session based on movement"""
+        for session, (start, end) in self.session_movements.items():
+            if start <= self.current_movement < end:
+                return session
+        return MarketSession.CLOSED
+    
+    def get_current_session(self) -> MarketSession:
+        """Get current market session"""
+        return self.current_session
+    
+    def is_market_open(self) -> bool:
+        """Check if market is currently open"""
+        return self.current_session in [MarketSession.PRE_MARKET, MarketSession.REGULAR, MarketSession.AFTER_HOURS]
     
     def get_day_progress(self) -> float:
         """Get progress of current day as a percentage (0.0 to 1.0)"""
@@ -135,12 +199,67 @@ class TimeManager:
         if restriction.is_blocked:
             return False
         
+        # Check market session if enabled
+        if self.enable_market_sessions and not self.is_market_open():
+            return False
+        
         # Check time window
         if (restriction.allowed_movements_start <= self.current_movement < 
             restriction.allowed_movements_end):
             return True
         
         return False
+    
+    def update_agent_performance(self, agent_id: str, performance: float):
+        """Update agent performance score for dynamic adjustment"""
+        if agent_id not in self.agent_performance_history:
+            self.agent_performance_history[agent_id] = []
+        
+        self.agent_performance_history[agent_id].append(performance)
+        
+        # Keep only recent performance
+        if len(self.agent_performance_history[agent_id]) > 100:
+            self.agent_performance_history[agent_id].pop(0)
+        
+        # Update restriction performance score
+        if agent_id in self.agent_restrictions:
+            recent_perf = self.agent_performance_history[agent_id][-10:]
+            avg_perf = sum(recent_perf) / len(recent_perf) if recent_perf else 0.5
+            self.agent_restrictions[agent_id].performance_score = avg_perf
+    
+    def _adjust_time_windows(self):
+        """Dynamically adjust time windows based on agent performance"""
+        if not self.enable_dynamic_adjustment:
+            return
+        
+        for agent_id, restriction in self.agent_restrictions.items():
+            # Get recent performance
+            perf_history = self.agent_performance_history.get(agent_id, [])
+            if len(perf_history) < 10:
+                continue
+            
+            recent_perf = sum(perf_history[-10:]) / 10
+            
+            # Adjust window based on performance
+            current_window = restriction.allowed_movements_end - restriction.allowed_movements_start
+            
+            if recent_perf > 0.7 and current_window < self.movements_per_day - 2:
+                # High performance: expand window
+                new_start = max(0, restriction.allowed_movements_start - 1)
+                new_end = min(self.movements_per_day, restriction.allowed_movements_end + 1)
+                
+                restriction.adjustment_history.append((new_start, new_end))
+                restriction.allowed_movements_start = new_start
+                restriction.allowed_movements_end = new_end
+                
+            elif recent_perf < 0.3 and current_window > 2:
+                # Low performance: shrink window
+                new_start = min(self.movements_per_day - 2, restriction.allowed_movements_start + 1)
+                new_end = max(2, restriction.allowed_movements_end - 1)
+                
+                restriction.adjustment_history.append((new_start, new_end))
+                restriction.allowed_movements_start = new_start
+                restriction.allowed_movements_end = new_end
     
     def block_agent(self, agent_id: str, duration: int, reason: str = "Unknown"):
         """Block an agent from trading for a specified duration"""
@@ -228,8 +347,6 @@ class TimeManager:
         Initialize default time restrictions for agents.
         Distribute agents across different time windows to add realism.
         """
-        import random
-        
         n_agents = len(agent_ids)
         
         # Strategy 1: Early traders (first 30% of day)
@@ -253,6 +370,61 @@ class TimeManager:
                 start = random.randint(7, 9)
                 self.add_agent_restriction(agent_ids[i], start, self.movements_per_day)
     
+    def get_time_diversity_metrics(self) -> Dict[str, Any]:
+        """Calculate metrics about time window diversity"""
+        if not self.agent_restrictions:
+            return {'diversity_score': 0.0}
+        
+        windows = [(r.allowed_movements_start, r.allowed_movements_end) 
+                   for r in self.agent_restrictions.values()]
+        
+        # Calculate overlap between windows
+        total_overlap = 0
+        n_pairs = 0
+        
+        for i in range(len(windows)):
+            for j in range(i + 1, len(windows)):
+                start1, end1 = windows[i]
+                start2, end2 = windows[j]
+                
+                # Calculate overlap
+                overlap = max(0, min(end1, end2) - max(start1, start2))
+                total_overlap += overlap
+                n_pairs += 1
+        
+        avg_overlap = total_overlap / n_pairs if n_pairs > 0 else 0
+        max_possible_overlap = self.movements_per_day
+        diversity_score = 1.0 - (avg_overlap / max_possible_overlap)
+        
+        return {
+            'diversity_score': diversity_score,
+            'avg_overlap': avg_overlap,
+            'num_windows': len(windows),
+            'window_sizes': [end - start for start, end in windows]
+        }
+    
+    def convert_to_real_time(self, movement: int) -> datetime:
+        """Convert movement number to simulated real time"""
+        if self.day_start_time is None:
+            return datetime.now()
+        
+        seconds_per_movement = self.day_duration_seconds / self.movements_per_day
+        elapsed_seconds = movement * seconds_per_movement
+        real_time = datetime.fromtimestamp(self.day_start_time + elapsed_seconds)
+        
+        return real_time
+    
+    def get_timezone_offset(self) -> int:
+        """Get timezone offset in hours"""
+        offsets = {
+            TimeZone.EST: -5,
+            TimeZone.PST: -8,
+            TimeZone.GMT: 0,
+            TimeZone.JST: 9,
+            TimeZone.CET: 1
+        }
+        return offsets.get(self.timezone, 0)
+    
     def reset(self):
         """Reset time manager state"""
         self.current_day = 0
@@ -264,6 +436,8 @@ class TimeManager:
         self.black_box_counter = 0
         self.black_box_remaining = 0
         self.agent_restrictions.clear()
+        self.agent_performance_history.clear()
+        self.current_session = MarketSession.CLOSED
     
     def get_state(self) -> Dict:
         """Get current time manager state"""

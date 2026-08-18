@@ -1,5 +1,5 @@
 import sys
-import consts
+from . import consts
  
 class p_Event:
     def __init__(self):
@@ -13,6 +13,7 @@ class CLI:
     """ The Struct holding configuration for our Simulation """
     def __init__(self):
         self.dbg = False
+        self.tui = False
         self.n_agnts = 5
         self.mx_bad = int(self.n_agnts * 0.2)
         self.mx_episodes = 100
@@ -30,6 +31,8 @@ class CLI:
         for i in sys.argv:
             if i.lower() in {"-d","--debug"}:
                 self.dbg = True
+            elif i.lower() in {"-tui","--tui"}:
+                self.tui = True
             elif i.startswith("-n=") or i.startswith("--n_agents="):
                 self.n_agnts = int(i[i.find("=")+1:])
             elif i.startswith("-m_bad=") or i.startswith("--max_bad="):

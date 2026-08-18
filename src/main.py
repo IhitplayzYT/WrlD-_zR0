@@ -6,6 +6,7 @@ import ingestors.pdf as PdfIngest
 import ingestors.text as TextIngest
 from events import EventManager
 from environment import MarketEnvironment
+from tui.main import launch_tui
 
 if __name__ == "__main__":
     clargs = helper.CLI()
@@ -23,6 +24,36 @@ if __name__ == "__main__":
             print(f"Loaded custom events from {clargs.event_file}")
         except Exception as e:
             print(f"Warning: Failed to load custom events: {e}")
+    
+    # Check if TUI mode is requested
+    if clargs.tui:
+        # Launch TUI with mock data for now
+        # TODO: Integrate with actual simulation state
+        mock_state = {
+            'stock_data': {
+                'AAPL': 150.0,
+                'GOOGL': 2800.0,
+                'MSFT': 300.0,
+                'TSLA': 800.0,
+            },
+            'price_history': {
+                'AAPL': [145.0, 146.0, 147.0, 148.0, 149.0, 150.0],
+                'GOOGL': [2750.0, 2760.0, 2770.0, 2780.0, 2790.0, 2800.0],
+                'MSFT': [295.0, 296.0, 297.0, 298.0, 299.0, 300.0],
+                'TSLA': [795.0, 796.0, 797.0, 798.0, 799.0, 800.0],
+            },
+            'agents': {
+                'agent_0': {'agent_type': 'rlaif', 'cash': 10000, 'holdings': 10, 'total_value': 11500},
+                'agent_1': {'agent_type': 'adversarial', 'cash': 10000, 'holdings': 5, 'total_value': 10400},
+            },
+            'news_events': [
+                {'type': 'News', 'message': 'Market opens higher'},
+                {'type': 'Villain Move', 'message': 'Price manipulation detected'},
+            ],
+            'villain_points': 150,
+        }
+        launch_tui(mock_state)
+        exit()
     
     # Generates a random sampled data for stock based on count of stock_data files provided
     # The data is randomly scaled shuffled sampled and trimmed to clargs.each_day_movement * clargs.episode_day_len with a total of clargs.mx_episodes dataframes 
