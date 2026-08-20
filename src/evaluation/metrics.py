@@ -15,8 +15,6 @@ class MetricType(Enum):
 
 @dataclass
 class PerformanceMetrics:
-
-    # Profitability metrics
     total_return: float = 0.0
     annualized_return: float = 0.0
     sharpe_ratio: float = 0.0
@@ -56,19 +54,44 @@ class PerformanceMetrics:
     prediction_calibration: float = 0.0
     
     def to_dict(self) -> Dict[str, float]:
-        """Convert metrics to dictionary"""
         return {'total_return': self.total_return,'annualized_return': self.annualized_return,'sharpe_ratio': self.sharpe_ratio,'sortino_ratio': self.sortino_ratio,'calmar_ratio': self.calmar_ratio,'max_drawdown': self.max_drawdown,'max_drawdown_duration': self.max_drawdown_duration,'volatility': self.volatility,'downside_deviation': self.downside_deviation,'var_95': self.var_95,'cvar_95': self.cvar_95,'beta': self.beta,'alpha': self.alpha,'win_rate': self.win_rate,'profit_factor': self.profit_factor,'avg_win': self.avg_win,'avg_loss': self.avg_loss,'largest_win': self.largest_win,'largest_loss': self.largest_loss,'total_trades': self.total_trades,'avg_trade_duration': self.avg_trade_duration,'turnover_rate': self.turnover_rate,'avg_slippage': self.avg_slippage,'market_impact': self.market_impact,'liquidity_consumption': self.liquidity_consumption,'prediction_accuracy': self.prediction_accuracy,'prediction_calibration': self.prediction_calibration}
+
+    def from_dict(self, dict: Dict[str, float]):
+        self.total_return = dict['total_return']
+        self.annualized_return = dict['annualized_return']
+        self.sharpe_ratio = dict['sharpe_ratio']
+        self.sortino_ratio = dict['sortino_ratio']
+        self.calmar_ratio = dict['calmar_ratio']
+        self.max_drawdown = dict['max_drawdown']
+        self.max_drawdown_duration = dict['max_drawdown_duration']
+        self.volatility = dict['volatility']
+        self.downside_deviation = dict['downside_deviation']
+        self.var_95 = dict['var_95']
+        self.cvar_95 = dict['cvar_95']
+        self.beta = dict['beta']
+        self.alpha = dict['alpha']
+        self.win_rate = dict['win_rate']
+        self.profit_factor = dict['profit_factor']
+        self.avg_win = dict['avg_win']
+        self.avg_loss = dict['avg_loss']
+        self.largest_win = dict['largest_win']
+        self.largest_loss = dict['largest_loss']
+        self.total_trades = dict['total_trades']
+        self.avg_trade_duration = dict['avg_trade_duration']
+        self.turnover_rate = dict['turnover_rate']
+        self.avg_slippage = dict['avg_slippage']
+        self.market_impact = dict['market_impact']
+        self.liquidity_consumption = dict['liquidity_consumption']
+        self.prediction_accuracy = dict['prediction_accuracy']
+        self.prediction_calibration = dict['prediction_calibration']
 
 
 class MetricsCalculator:
-    """ Statistical testing and regime analysis. """
-    
     def __init__(self, risk_free_rate: float = 0.02):
         self.risk_free_rate = risk_free_rate
     
     def calculate_metrics(self,returns: List[float],portfolio_values: List[float],market_returns: Optional[List[float]] = None,trades: Optional[List[Dict]] = None,predictions: Optional[List[Dict]] = None) -> PerformanceMetrics:
         metrics = PerformanceMetrics()
-        
         metrics.total_return = (portfolio_values[-1] / portfolio_values[0]) - 1
         metrics.annualized_return = self._calculate_annualized_return(returns)
         metrics.volatility = np.std(returns) if returns else 0.0
@@ -189,10 +212,6 @@ class MetricsCalculator:
 
 
 class StatisticalSignificanceTester:
-    """
-    Perform statistical significance testing for performance comparisons.
-    Implements bootstrap and permutation tests.
-    """
     
     def __init__(self, n_bootstrap: int = 1000, random_seed: Optional[int] = None):
         self.n_bootstrap = n_bootstrap
