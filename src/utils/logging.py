@@ -11,7 +11,6 @@ import re
 
 
 class LogLevel(Enum):
-    """Log levels"""
     DEBUG = "debug"
     INFO = "info"
     WARNING = "warning"
@@ -20,7 +19,6 @@ class LogLevel(Enum):
 
 
 class LogCategory(Enum):
-    """Log categories for filtering"""
     MARKET = "market"
     AGENT = "agent"
     EVENT = "event"
@@ -32,9 +30,6 @@ class LogCategory(Enum):
 
 @dataclass
 class LogEntry:
-    """
-    Structured log entry.
-    """
     timestamp: datetime
     level: LogLevel
     category: LogCategory
@@ -46,24 +41,10 @@ class LogEntry:
     step: Optional[int] = None
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert log entry to dictionary"""
-        return {
-            'timestamp': self.timestamp.isoformat(),
-            'level': self.level.value,
-            'category': self.category.value,
-            'message': self.message,
-            'data': self.data,
-            'source': self.source,
-            'agent_id': self.agent_id,
-            'episode': self.episode,
-            'step': self.step
-        }
-
+        return {'timestamp': self.timestamp.isoformat(),'level': self.level.value,'category': self.category.value,'message': self.message,'data': self.data,'source': self.source,'agent_id': self.agent_id,'episode': self.episode,'step': self.step}
 
 class LogFilter:
-    """
-    Filter log entries based on criteria.
-    """
+    """ Filter log entries based on criteria. """
     
     def __init__(self):
         self.level_filter: Optional[LogLevel] = None
@@ -73,7 +54,6 @@ class LogFilter:
         self.message_pattern: Optional[str] = None
     
     def matches(self, entry: LogEntry) -> bool:
-        """Check if entry matches filter criteria"""
         if self.level_filter and entry.level != self.level_filter:
             return False
         
@@ -94,27 +74,24 @@ class LogFilter:
         return True
 
 
+
+# Used to compress and manage lifecycle of logs in logs/ dir
 class LogRotator:
-    """
-    Handle log rotation and compression.
-    """
+    """ Handle log rotation and compression. """
     
     def __init__(self, max_file_size: int = 10 * 1024 * 1024, max_files: int = 10):
         self.max_file_size = max_file_size  # 10 MB default
         self.max_files = max_files
     
     def should_rotate(self, log_file: Path) -> bool:
-        """Check if log file should be rotated"""
         if not log_file.exists():
             return False
         return log_file.stat().st_size >= self.max_file_size
     
     def rotate(self, log_file: Path):
-        """Rotate log file"""
         if not log_file.exists():
             return
         
-        # Compress old log
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         compressed_file = log_file.parent / f"{log_file.stem}_{timestamp}.json.gz"
         
@@ -122,14 +99,10 @@ class LogRotator:
             with gzip.open(compressed_file, 'wb') as f_out:
                 f_out.writelines(f_in)
         
-        # Clear current log file
         log_file.write_text("")
-        
-        # Remove old compressed files if too many
         self._cleanup_old_files(log_file.parent)
     
     def _cleanup_old_files(self, log_dir: Path):
-        """Remove old compressed log files"""
         compressed_files = sorted(log_dir.glob("*.json.gz"), key=lambda p: p.stat().st_mtime)
         
         while len(compressed_files) > self.max_files:
@@ -138,130 +111,64 @@ class LogRotator:
 
 
 class JSONLogger:
-    """
-    JSON-based structured logging system.
-    """
+    """ JSON-based logging system."""
     
-    def __init__(
-        self,
-        log_dir: str = "./logs",
-        log_file: str = "simulation.jsonl",
-        enable_rotation: bool = True,
-        enable_compression: bool = True,
-        buffer_size: int = 100
-    ):
+    def __init__(self,log_dir: str = "./logs",log_file: str = "simulation.jsonl",enable_rotation: bool = True,enable_compression: bool = True,buffer_size: int = 100):
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.log_file = self.log_dir / log_file
-        
         self.enable_rotation = enable_rotation
         self.rotator = LogRotator() if enable_rotation else None
         self.enable_compression = enable_compression
-        
         self.buffer: deque = deque(maxlen=buffer_size)
         self.buffer_size = buffer_size
-        
         self.lock = threading.Lock()
-        
-        # Initialize log file
         if not self.log_file.exists():
             self.log_file.write_text("")
     
-    def log(
-        self,
-        level: LogLevel,
-        category: LogCategory,
-        message: str,
-        data: Optional[Dict[str, Any]] = None,
-        source: str = "",
-        agent_id: Optional[str] = None,
-        episode: Optional[int] = None,
-        step: Optional[int] = None
-    ):
-        """Log an entry"""
-        entry = LogEntry(
-            timestamp=datetime.now(),
-            level=level,
-            category=category,
-            message=message,
-            data=data or {},
-            source=source,
-            agent_id=agent_id,
-            episode=episode,
-            step=step
-        )
+    def log(self,level: LogLevel,category: LogCategory,message: str,data: Optional[Dict[str, Any]] = None,source: str = "",agent_id: Optional[str] = None,episode: Optional[int] = None,step: Optional[int] = None):
+        entry = LogEntry(timestamp=datetime.now(),level=level,category=category,message=message,data=data or {},source=source,agent_id=agent_id,episode=episode,step=step)
         
         with self.lock:
             self.buffer.append(entry)
             
-            # Flush if buffer is full
             if len(self.buffer) >= self.buffer_size:
                 self.flush()
     
     def debug(self, category: LogCategory, message: str, **kwargs):
-        """Log debug message"""
         self.log(LogLevel.DEBUG, category, message, **kwargs)
     
     def info(self, category: LogCategory, message: str, **kwargs):
-        """Log info message"""
         self.log(LogLevel.INFO, category, message, **kwargs)
     
     def warning(self, category: LogCategory, message: str, **kwargs):
-        """Log warning message"""
         self.log(LogLevel.WARNING, category, message, **kwargs)
     
     def error(self, category: LogCategory, message: str, **kwargs):
-        """Log error message"""
         self.log(LogLevel.ERROR, category, message, **kwargs)
     
     def critical(self, category: LogCategory, message: str, **kwargs):
-        """Log critical message"""
         self.log(LogLevel.CRITICAL, category, message, **kwargs)
     
     def flush(self):
-        """Flush buffer to disk"""
         if not self.buffer:
             return
-        
-        # Check rotation
         if self.enable_rotation and self.rotator.should_rotate(self.log_file):
             self.rotator.rotate(self.log_file)
-        
-        # Write buffered entries
         with open(self.log_file, 'a') as f:
             for entry in self.buffer:
                 f.write(json.dumps(entry.to_dict()) + '\n')
-        
         self.buffer.clear()
     
-    def query(
-        self,
-        log_filter: Optional[LogFilter] = None,
-        limit: int = 1000
-    ) -> List[LogEntry]:
-        """
-        Query log entries with optional filter.
-        """
+    def query(self,log_filter: Optional[LogFilter] = None,limit: int = 1000) -> List[LogEntry]:
+        """ Query log entries with filter. """
         entries = []
-        
-        # Read from current log file
         if self.log_file.exists():
             with open(self.log_file, 'r') as f:
                 for line in f:
                     try:
                         data = json.loads(line)
-                        entry = LogEntry(
-                            timestamp=datetime.fromisoformat(data['timestamp']),
-                            level=LogLevel(data['level']),
-                            category=LogCategory(data['category']),
-                            message=data['message'],
-                            data=data.get('data', {}),
-                            source=data.get('source', ''),
-                            agent_id=data.get('agent_id'),
-                            episode=data.get('episode'),
-                            step=data.get('step')
-                        )
-                        
+                        entry = LogEntry(timestamp=datetime.fromisoformat(data['timestamp']),level=LogLevel(data['level']),category=LogCategory(data['category']),message=data['message'],data=data.get('data', {}),source=data.get('source', ''),agent_id=data.get('agent_id'),episode=data.get('episode'),step=data.get('step'))
                         if log_filter is None or log_filter.matches(entry):
                             entries.append(entry)
                             if len(entries) >= limit:
@@ -269,29 +176,16 @@ class JSONLogger:
                     except (json.JSONDecodeError, KeyError):
                         continue
         
-        # Read from compressed files if enabled
         if self.enable_compression and len(entries) < limit:
             for compressed_file in sorted(self.log_dir.glob("*.json.gz"), reverse=True):
                 if len(entries) >= limit:
                     break
-                
                 try:
                     with gzip.open(compressed_file, 'rt') as f:
                         for line in f:
                             try:
                                 data = json.loads(line)
-                                entry = LogEntry(
-                                    timestamp=datetime.fromisoformat(data['timestamp']),
-                                    level=LogLevel(data['level']),
-                                    category=LogCategory(data['category']),
-                                    message=data['message'],
-                                    data=data.get('data', {}),
-                                    source=data.get('source', ''),
-                                    agent_id=data.get('agent_id'),
-                                    episode=data.get('episode'),
-                                    step=data.get('step')
-                                )
-                                
+                                entry = LogEntry(timestamp=datetime.fromisoformat(data['timestamp']),level=LogLevel(data['level']),category=LogCategory(data['category']),message=data['message'],data=data.get('data', {}),source=data.get('source', ''),agent_id=data.get('agent_id'),episode=data.get('episode'),step=data.get('step'))
                                 if log_filter is None or log_filter.matches(entry):
                                     entries.append(entry)
                                     if len(entries) >= limit:
@@ -304,91 +198,49 @@ class JSONLogger:
         return entries
     
     def get_statistics(self) -> Dict[str, Any]:
-        """Get logging statistics"""
-        entries = self.query(limit=10000)  # Sample recent entries
-        
+        entries = self.query(limit=10000) 
         if not entries:
             return {'total_entries': 0}
-        
-        # Count by level
         level_counts = {}
         for entry in entries:
             level_counts[entry.level.value] = level_counts.get(entry.level.value, 0) + 1
-        
-        # Count by category
         category_counts = {}
         for entry in entries:
             category_counts[entry.category.value] = category_counts.get(entry.category.value, 0) + 1
-        
-        # Count by agent
         agent_counts = {}
         for entry in entries:
             if entry.agent_id:
                 agent_counts[entry.agent_id] = agent_counts.get(entry.agent_id, 0) + 1
-        
-        return {
-            'total_entries': len(entries),
-            'level_counts': level_counts,
-            'category_counts': category_counts,
-            'agent_counts': agent_counts,
-            'time_range': {
-                'start': min(e.timestamp for e in entries).isoformat(),
-                'end': max(e.timestamp for e in entries).isoformat()
-            }
-        }
+        return {'total_entries': len(entries),'level_counts': level_counts,'category_counts': category_counts,'agent_counts': agent_counts,'time_range': {'start': min(e.timestamp for e in entries).isoformat(),'end': max(e.timestamp for e in entries).isoformat()}}
     
     def analyze_anomalies(self, threshold: float = 3.0) -> List[Dict[str, Any]]:
-        """
-        Detect anomalies in log data.
-        """
         entries = self.query(limit=10000)
-        
         if not entries:
             return []
-        
         anomalies = []
         
         # Check for error spikes
         error_entries = [e for e in entries if e.level in [LogLevel.ERROR, LogLevel.CRITICAL]]
         if len(error_entries) > len(entries) * 0.1:  # More than 10% errors
-            anomalies.append({
-                'type': 'error_spike',
-                'description': f'High error rate: {len(error_entries)}/{len(entries)}',
-                'severity': 'high'
-            })
+            anomalies.append({'type': 'error_spike','description': f'High error rate: {len(error_entries)}/{len(entries)}','severity': 'high'})
         
         # Check for unusual patterns in data
         for entry in entries:
             if entry.data:
                 for key, value in entry.data.items():
                     if isinstance(value, (int, float)):
-                        # Simple outlier detection
                         all_values = [e.data.get(key) for e in entries if key in e.data and isinstance(e.data[key], (int, float))]
                         if all_values:
                             mean = sum(all_values) / len(all_values)
                             std = (sum((x - mean) ** 2 for x in all_values) / len(all_values)) ** 0.5
                             if std > 0 and abs(value - mean) > threshold * std:
-                                anomalies.append({
-                                    'type': 'value_outlier',
-                                    'description': f'Outlier in {key}: {value}',
-                                    'timestamp': entry.timestamp.isoformat(),
-                                    'severity': 'medium'
-                                })
-        
+                                anomalies.append({'type': 'value_outlier','description': f'Outlier in {key}: {value}','timestamp': entry.timestamp.isoformat(),'severity': 'medium'})
         return anomalies
     
-    def export_logs(
-        self,
-        output_file: str,
-        log_filter: Optional[LogFilter] = None,
-        format: str = 'json'
-    ):
-        """Export logs to file"""
+    def export_logs(self,output_file: str,log_filter: Optional[LogFilter] = None,format: str = 'json'):
         entries = self.query(log_filter, limit=100000)
-        
         output_path = Path(output_file)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        
         if format == 'json':
             with open(output_path, 'w') as f:
                 json.dump([e.to_dict() for e in entries], f, indent=2)
@@ -400,21 +252,16 @@ class JSONLogger:
             raise ValueError(f"Unsupported format: {format}")
     
     def clear_logs(self):
-        """Clear all logs"""
         self.buffer.clear()
         if self.log_file.exists():
             self.log_file.write_text("")
-        
-        # Remove compressed files
         for compressed_file in self.log_dir.glob("*.json.gz"):
             compressed_file.unlink()
 
 
 class LogMonitor:
-    """
-    Real-time log monitoring and streaming.
-    """
-    
+    """Real time log monitoring"""
+
     def __init__(self, logger: JSONLogger):
         self.logger = logger
         self.callbacks: List[Callable[[LogEntry], None]] = []
@@ -426,39 +273,28 @@ class LogMonitor:
         self.callbacks.append(callback)
     
     def start_monitoring(self, interval: float = 1.0):
-        """Start real-time monitoring"""
         if self.monitoring:
             return
-        
         self.monitoring = True
         self.monitor_thread = threading.Thread(target=self._monitor_loop, args=(interval,))
         self.monitor_thread.daemon = True
         self.monitor_thread.start()
     
     def _monitor_loop(self, interval: float):
-        """Monitoring loop"""
         last_count = 0
-        
         while self.monitoring:
-            # Get recent entries
             entries = self.logger.query(limit=100)
-            
-            # Process new entries
             for entry in entries[last_count:]:
                 for callback in self.callbacks:
                     try:
                         callback(entry)
                     except Exception:
                         pass
-            
             last_count = len(entries)
-            
-            # Sleep for interval
             import time
             time.sleep(interval)
     
     def stop_monitoring(self):
-        """Stop monitoring"""
         self.monitoring = False
         if self.monitor_thread:
             self.monitor_thread.join(timeout=5.0)
@@ -469,48 +305,33 @@ _global_logger: Optional[JSONLogger] = None
 
 
 def get_logger() -> JSONLogger:
-    """Get global logger instance"""
+    """Initialise and get Global_logger"""
     global _global_logger
     if _global_logger is None:
         _global_logger = JSONLogger()
     return _global_logger
 
 
-def setup_logger(
-    log_dir: str = "./logs",
-    log_file: str = "simulation.jsonl",
-    enable_rotation: bool = True,
-    enable_compression: bool = True
-) -> JSONLogger:
-    """Setup global logger"""
+def setup_logger(log_dir: str = "./logs",log_file: str = "simulation.jsonl",enable_rotation: bool = True,enable_compression: bool = True) -> JSONLogger:
     global _global_logger
-    _global_logger = JSONLogger(
-        log_dir=log_dir,
-        log_file=log_file,
-        enable_rotation=enable_rotation,
-        enable_compression=enable_compression
-    )
+    _global_logger = JSONLogger(log_dir=log_dir,log_file=log_file,enable_rotation=enable_rotation,enable_compression=enable_compression)
     return _global_logger
 
 
 if __name__ == "__main__":
     # Test logging system
     logger = setup_logger(log_dir="./test_logs")
-    
     # Log some entries
     logger.info(LogCategory.MARKET, "Market initialized", data={'price': 100.0})
     logger.debug(LogCategory.AGENT, "Agent decision made", agent_id="agent_0", step=10)
     logger.warning(LogCategory.EVENT, "Event triggered", data={'event_type': 'earnings'})
     logger.error(LogCategory.SYSTEM, "Connection error", data={'error': 'timeout'})
-    
-    # Flush logs
     logger.flush()
     
     # Query logs
     filter = LogFilter()
     filter.level_filter = LogLevel.INFO
     entries = logger.query(filter, limit=10)
-    
     print(f"Queried {len(entries)} entries")
     for entry in entries:
         print(f"[{entry.level.value}] {entry.message}")
@@ -519,9 +340,8 @@ if __name__ == "__main__":
     stats = logger.get_statistics()
     print(f"\nStatistics: {stats}")
     
-    # Clean up
     logger.clear_logs()
     import shutil
     shutil.rmtree("./test_logs")
     
-    print("Logging system test completed")
+    print("Test completed")

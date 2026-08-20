@@ -4,6 +4,8 @@ from textual.widgets import Header, Footer, Static, DataTable, Tabs, Tab, Log, B
 from textual.scroll_view import ScrollView
 from textual.reactive import reactive
 from textual import events
+from textual.screen import Screen
+from textual.binding import Binding
 from typing import Dict, List, Optional, Any
 import asyncio
 from datetime import datetime
@@ -32,16 +34,16 @@ class StockTicker(Static):
             change_pct = (change / prev_price * 100) if prev_price > 0 else 0
             
             if change > 0:
-                color = "[green]"
+                color = "green"
                 arrow = "▲"
             elif change < 0:
-                color = "[red]"
+                color = "red"
                 arrow = "▼"
             else:
-                color = "[white]"
+                color = "white"
                 arrow = "→"
             
-            ticker_text.append(f"{color}{symbol}: ${price:.2f} {arrow} {abs(change_pct):.2f}%[/color]")
+            ticker_text.append(f"[{color}]{symbol}: ${price:.2f} {arrow} {abs(change_pct):.2f}%[/{color}]")
         
         return " | ".join(ticker_text)
 
@@ -131,22 +133,22 @@ class PriceGraph(ScrollView):
             # Color based on direction and magnitude
             if change > 0:
                 if change_pct > 0.5:
-                    color = "[bold green]"
+                    color = "bold green"
                 elif change_pct > 0.1:
-                    color = "[green]"
+                    color = "green"
                 else:
-                    color = "[dim green]"
+                    color = "dim green"
             elif change < 0:
                 if change_pct > 0.5:
-                    color = "[bold red]"
+                    color = "bold red"
                 elif change_pct > 0.1:
-                    color = "[red]"
+                    color = "red"
                 else:
-                    color = "[dim red]"
+                    color = "dim red"
             else:
-                color = "[white]"
+                color = "white"
             
-            line = f"{color}{connector} ${current:.2f} -> ${next_price:.2f} ({change_pct:+.2f}%)[/color]"
+            line = f"[{color}]{connector} ${current:.2f} -> ${next_price:.2f} ({change_pct:+.2f}%)[/{color}]"
             lines.append(line)
         
         return "\n".join(lines[-30:])  # Show last 30 changes
@@ -189,6 +191,7 @@ class NewsLog(ScrollView):
     def __init__(self):
         super().__init__()
         self.entries: List[Dict[str, Any]] = []
+        self.content = ""
     
     def add_entry(self, entry_type: str, message: str, timestamp: datetime = None):
         """Add a news or event entry"""
@@ -205,10 +208,11 @@ class NewsLog(ScrollView):
         if len(self.entries) > 100:
             self.entries = self.entries[-100:]
         
-        self.update()
+        # Update content
+        self.content = self._render_content()
     
-    def render(self) -> str:
-        """Render the news log"""
+    def _render_content(self) -> str:
+        """Render the news log content"""
         if not self.entries:
             return "No news or events"
         
@@ -220,17 +224,21 @@ class NewsLog(ScrollView):
             
             # Color code by type
             if entry_type == "Kaiser Election":
-                color = "[yellow]"
+                color = "yellow"
             elif entry_type == "Villain Move":
-                color = "[red]"
+                color = "red"
             elif entry_type == "News":
-                color = "[cyan]"
+                color = "cyan"
             else:
-                color = "[white]"
+                color = "white"
             
-            lines.append(f"{color}[{timestamp}] {entry_type}: {message}[/color]")
+            lines.append(f"[{color}][{timestamp}] {entry_type}: {message}[/{color}]")
         
         return "\n".join(lines)
+    
+    def render(self) -> str:
+        """Render the news log"""
+        return self.content if self.content else "No news or events"
 
 
 class AgentInspector(Static):
@@ -402,10 +410,10 @@ class VillainShop(Static):
             dynamic_cost = self.calculate_dynamic_cost(item_name, self.selected_duration, self.selected_timing)
             
             can_afford = self.villain_points >= dynamic_cost
-            status = "[green]" if can_afford else "[red]"
+            status = "green" if can_afford else "red"
             selected = " [bold]<-[/bold]" if self.selected_item == item_name else ""
             
-            lines.append(f"{status}{item_name}: {dynamic_cost} pts (Base: {base_cost}, Impact: {impact}, Prob: {probability})[/color]{selected}")
+            lines.append(f"[{status}]{item_name}: {dynamic_cost} pts (Base: {base_cost}, Impact: {impact}, Prob: {probability})[/{status}]{selected}")
         
         if self.selected_item:
             item = self.shop_items[self.selected_item]
@@ -459,54 +467,98 @@ class TradingTUI(App):
     
     CSS = """
     Screen {
-        layout: horizontal;
+        background: $primary;
     }
     
     #main_container {
         width: 70%;
+        height: 100%;
+        background: transparent;
     }
     
     #sidebar {
         width: 30%;
+        height: 100%;
         dock: right;
+        background: transparent;
     }
     
     StockTicker {
         height: 3;
         dock: top;
+        background: $surface;
+        text-align: center;
+        padding: 0 1;
     }
     
     PriceGraph {
         height: 40%;
+        background: transparent;
+        border: solid green;
+        padding: 1;
     }
     
     NewsLog {
         height: 60%;
+        background: transparent;
+        border: solid yellow;
+        padding: 1;
+        overflow-y: auto;
     }
     
     AgentInspector {
         height: 30%;
+        background: transparent;
+        border: solid cyan;
+        padding: 1;
     }
     
     VillainShop {
         height: 30%;
+        background: transparent;
+        border: solid red;
+        padding: 1;
+    }
+    
+    Static {
+        text-style: bold;
+    }
+    
+    .green {
+        color: green;
+    }
+    
+    .red {
+        color: red;
+    }
+    
+    .yellow {
+        color: yellow;
+    }
+    
+    .cyan {
+        color: cyan;
+    }
+    
+    .white {
+        color: white;
     }
     """
     
     BINDINGS = [
-        ("q", "quit", "Quit"),
-        ("space", "toggle_pause", "Pause/Resume"),
-        ("1", "switch_tab_1", "Market View"),
-        ("2", "switch_tab_2", "Model Management"),
-        ("up", "scroll_up", "Scroll Up"),
-        ("down", "scroll_down", "Scroll Down"),
-        ("tab", "next_stock", "Next Stock"),
-        ("left", "prev_item", "Previous Shop Item"),
-        ("right", "next_item", "Next Shop Item"),
-        ("enter", "purchase_item", "Purchase Item"),
-        ("+", "increase_duration", "Increase Duration"),
-        ("-", "decrease_duration", "Decrease Duration"),
-        ("t", "toggle_timing", "Toggle Timing"),
+        Binding("q", "quit", "Quit", show=True),
+        Binding("space", "toggle_pause", "Pause/Resume", show=True),
+        Binding("1", "switch_tab_1", "Market View", show=True),
+        Binding("2", "switch_tab_2", "Model Management", show=True),
+        Binding("up", "scroll_up", "Scroll Up", show=False),
+        Binding("down", "scroll_down", "Scroll Down", show=False),
+        Binding("tab", "next_stock", "Next Stock", show=False),
+        Binding("left", "prev_item", "Previous Shop Item", show=False),
+        Binding("right", "next_item", "Next Shop Item", show=False),
+        Binding("enter", "purchase_item", "Purchase Item", show=False),
+        Binding("+", "increase_duration", "Increase Duration", show=False),
+        Binding("-", "decrease_duration", "Decrease Duration", show=False),
+        Binding("t", "toggle_timing", "Toggle Timing", show=False),
     ]
     
     paused = reactive(False)
@@ -519,6 +571,8 @@ class TradingTUI(App):
         self.price_history = simulation_state.get('price_history', {})
         self.agents = simulation_state.get('agents', {})
         self.news_events = simulation_state.get('news_events', [])
+        self.simulation_task = None
+        self.update_counter = 0
     
     def compose(self) -> ComposeResult:
         """Compose the TUI layout"""
@@ -538,11 +592,18 @@ class TradingTUI(App):
     def on_mount(self) -> None:
         """Initialize the TUI"""
         self.update_simulation_data()
-        self.run_simulation_loop()
+        # Start simulation loop as a background task
+        self.simulation_task = self.set_interval(0.1, self.update_simulation_data)
     
     def action_toggle_pause(self) -> None:
         """Toggle pause state"""
         self.paused = not self.paused
+        if self.paused:
+            if self.simulation_task:
+                self.simulation_task.stop()
+        else:
+            if self.simulation_task:
+                self.simulation_task.start()
     
     def action_switch_tab_1(self) -> None:
         """Switch to market view tab"""
@@ -554,11 +615,15 @@ class TradingTUI(App):
     
     def action_scroll_up(self) -> None:
         """Scroll up in focused widget"""
-        self.focused.scroll_up()
+        focused = self.focused
+        if focused and hasattr(focused, 'scroll_up'):
+            focused.scroll_up()
     
     def action_scroll_down(self) -> None:
         """Scroll down in focused widget"""
-        self.focused.scroll_down()
+        focused = self.focused
+        if focused and hasattr(focused, 'scroll_down'):
+            focused.scroll_down()
     
     def action_next_stock(self) -> None:
         """Switch to next stock in price graph"""
@@ -622,29 +687,47 @@ class TradingTUI(App):
             next_idx = (current_idx + 1) % len(item['timing_options'])
             shop.set_timing(item['timing_options'][next_idx])
     
-    async def run_simulation_loop(self):
-        """Run the simulation update loop"""
-        while True:
-            if not self.paused:
-                self.update_simulation_data()
-            
-            await asyncio.sleep(0.1)  # Update every 100ms
-    
     def update_simulation_data(self):
         """Update simulation data from state"""
-        # Update stock ticker
-        if 'stock_data' in self.simulation_state:
-            self.query_one(StockTicker).update_prices(self.simulation_state['stock_data'])
+        if self.paused:
+            return
+            
+        self.update_counter += 1
+        
+        # Update stock ticker with simulated price changes
+        if self.update_counter % 5 == 0:  # Update prices every 5 thecks
+            for symbol in self.stock_data:
+                import random
+                change = random.uniform(-2, 2)
+                self.stock_data[symbol] = max(1.0, self.stock_data[symbol] + change)
+            self.query_one(StockTicker).update_prices(self.stock_data)
         
         # Update price history
-        if 'price_history' in self.simulation_state:
-            self.query_one(PriceGraph).price_history = self.simulation_state['price_history']
+        if self.update_counter % 10 == 0:  # Update history every 10 ticks
+            for symbol in self.stock_data:
+                if symbol not in self.price_history:
+                    self.price_history[symbol] = []
+                self.price_history[symbol].append(self.stock_data[symbol])
+                if len(self.price_history[symbol]) > 100:
+                    self.price_history[symbol] = self.price_history[symbol][-100:]
+            self.query_one(PriceGraph).price_history = self.price_history
         
-        # Update news log
-        if 'news_events' in self.simulation_state:
+        # Update news log (only add new events occasionally)
+        if self.update_counter % 20 == 0:  # Add news every 20 ticks
+            import random
+            news_types = ["News", "Villain Move", "Kaiser Election"]
+            news_messages = [
+                "Market volatility increases",
+                "Price manipulation detected",
+                "New Kaiser election announced",
+                "Sector rotation observed",
+                "Liquidity concerns in tech stocks"
+            ]
             news_log = self.query_one(NewsLog)
-            for event in self.simulation_state['news_events'][-5:]:  # Add last 5 events
-                news_log.add_entry(event.get('type', 'Event'), event.get('message', ''))
+            news_log.add_entry(
+                random.choice(news_types),
+                random.choice(news_messages)
+            )
         
         # Update villain shop
         if 'villain_points' in self.simulation_state:

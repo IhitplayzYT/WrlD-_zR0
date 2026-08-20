@@ -7,6 +7,7 @@ import ingestors.text as TextIngest
 from events import EventManager
 from environment import MarketEnvironment
 from tui.main import launch_tui
+from gui.main import launch_gui
 
 if __name__ == "__main__":
     clargs = helper.CLI()
@@ -14,46 +15,14 @@ if __name__ == "__main__":
     if clargs.dbg:
         print(clargs)
     
-    # Initialize event manager
     event_manager = EventManager()
     
-    # Load custom events from JSON if provided
     if clargs.event_file:
         try:
             event_manager.load_events_from_json(clargs.event_file)
             print(f"Loaded custom events from {clargs.event_file}")
         except Exception as e:
             print(f"Warning: Failed to load custom events: {e}")
-    
-    # Check if TUI mode is requested
-    if clargs.tui:
-        # Launch TUI with mock data for now
-        # TODO: Integrate with actual simulation state
-        mock_state = {
-            'stock_data': {
-                'AAPL': 150.0,
-                'GOOGL': 2800.0,
-                'MSFT': 300.0,
-                'TSLA': 800.0,
-            },
-            'price_history': {
-                'AAPL': [145.0, 146.0, 147.0, 148.0, 149.0, 150.0],
-                'GOOGL': [2750.0, 2760.0, 2770.0, 2780.0, 2790.0, 2800.0],
-                'MSFT': [295.0, 296.0, 297.0, 298.0, 299.0, 300.0],
-                'TSLA': [795.0, 796.0, 797.0, 798.0, 799.0, 800.0],
-            },
-            'agents': {
-                'agent_0': {'agent_type': 'rlaif', 'cash': 10000, 'holdings': 10, 'total_value': 11500},
-                'agent_1': {'agent_type': 'adversarial', 'cash': 10000, 'holdings': 5, 'total_value': 10400},
-            },
-            'news_events': [
-                {'type': 'News', 'message': 'Market opens higher'},
-                {'type': 'Villain Move', 'message': 'Price manipulation detected'},
-            ],
-            'villain_points': 150,
-        }
-        launch_tui(mock_state)
-        exit()
     
     # Generates a random sampled data for stock based on count of stock_data files provided
     # The data is randomly scaled shuffled sampled and trimmed to clargs.each_day_movement * clargs.episode_day_len with a total of clargs.mx_episodes dataframes 
@@ -68,16 +37,54 @@ if __name__ == "__main__":
             else:
                 stock_map[k] = augment.augment_stock_data(TextIngest.ingest_txt(x),clargs.mx_episodes,clargs.episode_day_len,clargs.each_day_movements)
     else:
-        stock_map[f"SYNTH{cur}"] = augment.augment_stock_data(generate.generate_stock()["prices"])
+        n_points = clargs.episode_day_len * clargs.each_day_movements * clargs.mx_episodes
+        stock_df = generate.generate_stock(n_points)
+        stock_map[f"SYNTH{cur}"] = augment.augment_stock_data(stock_df, clargs.mx_episodes, clargs.episode_day_len, clargs.each_day_movements)
         cur += 1
     
     # Flatten stock data for environment
-    price_data = []
+    price_data = {}
     for stock_name, episodes in stock_map.items():
+        price_data[stock_name] = []
         for episode_data in episodes:
-            price_data.extend(episode_data)
+            price_data[stock_name].extend(episode_data)
+    
+    if clargs.tui:
+        # Launch TUI with actual simulation data
+        simulation_state = {
+            'stock_data': {k: v[-1] for k, v in price_data.items() if v},
+            'price_history': price_data,
+            'agents': {f"agent_{i}": {'agent_type': 'rlaif', 'cash': clargs.initial_amount, 'holdings': 0, 'total_value': clargs.initial_amount} for i in range(clargs.n_agnts)},
+            'news_events': [],
+            'villain_points': 0,
+        }
+        launch_tui(simulation_state)
+        exit()
+    
+    if clargs.gui:
+        # Launch GUI with actual simulation data
+        simulation_state = {
+            'stock_data': {k: v[-1] for k, v in price_data.items() if v},
+            'price_history': price_data,
+            'agents': {f"agent_{i}": {'agent_type': 'rlaif', 'cash': clargs.initial_amount, 'holdings': 0, 'total_value': clargs.initial_amount} for i in range(clargs.n_agnts)},
+            'news_events': [],
+            'villain_points': 0,
+            'black_box_duration': clargs.black_bx_dur,
+            'black_box_frequency': clargs.black_bx_freq,
+            'rng_bbox': clargs.rng_bbox,
+        }
+        launch_gui(simulation_state)
+        exit()
     
     # Create market environment
+    # Handle random black box sampling if flag is set
+    if clargs.rng_bbox:
+        min_dur, max_dur, min_freq, max_freq = clargs.rng_bbox
+        import random
+        clargs.black_bx_dur = random.randint(min_dur, max_dur)
+        clargs.black_bx_freq = random.randint(min_freq, max_freq)
+        print(f"Random black box parameters: duration={clargs.black_bx_dur}, frequency={clargs.black_bx_freq}")
+    
     env = MarketEnvironment(
         n_agents=clargs.n_agnts,
         max_bad_agents=clargs.mx_bad,

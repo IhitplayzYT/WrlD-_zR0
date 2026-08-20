@@ -1,10 +1,12 @@
 import sys
-from . import consts
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import src.consts as consts
  
 class p_Event:
     def __init__(self):
-        self.p_good = 0.5
-        self.p_bad = 1 - self.good
+        self.p_good = 0.8
+        self.p_bad = 1 - self.p_good
         self.p_criticality = 0.01
         
 
@@ -14,6 +16,7 @@ class CLI:
     def __init__(self):
         self.dbg = False
         self.tui = False
+        self.gui = False
         self.n_agnts = 5
         self.mx_bad = int(self.n_agnts * 0.2)
         self.mx_episodes = 100
@@ -26,6 +29,7 @@ class CLI:
         self.black_bx_dur = 5
         self.black_bx_freq = 20
         self.event_file = None  # Path to JSON file with custom events
+        self.rng_bbox = None  # Random black box sampling: (min_dur, max_dur, min_freq, max_freq)
     
     def Parse(self):
         for i in sys.argv:
@@ -33,6 +37,18 @@ class CLI:
                 self.dbg = True
             elif i.lower() in {"-tui","--tui"}:
                 self.tui = True
+            elif i.lower() in {"-gui","--gui"}:
+                self.gui = True
+            elif i.startswith("-rng_bbox=") or i.startswith("--random_bbox="):
+                # Parse format: --rng_bbox=(min_dur,max_dur,min_freq,max_freq)
+                bbox_str = i[i.find("=")+1:]
+                bbox_str = bbox_str.strip("()")
+                try:
+                    parts = [int(x.strip()) for x in bbox_str.split(",")]
+                    if len(parts) == 4:
+                        self.rng_bbox = tuple(parts)
+                except:
+                    pass
             elif i.startswith("-n=") or i.startswith("--n_agents="):
                 self.n_agnts = int(i[i.find("=")+1:])
             elif i.startswith("-m_bad=") or i.startswith("--max_bad="):
