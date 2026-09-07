@@ -1,21 +1,17 @@
-# ==============================
-# Core Numerical Computing
-# ==============================
+# Numerical Computing
 numpy>=1.25.2,<2.0
 scipy==1.16.1
 polars==1.33.1
 pyarrow>=21.0
 pandas>=2.3
+scikit-learn
+statsmodels==0.14.5
 
-# ==============================
-# PDF Extraction 
-# ==============================
+# PDF wrangling 
 pymupdf==1.26.4
 tabulate==0.9.0
 
-# ==============================
-# HuggingFace Ecosystem
-# ==============================
+# Huggingface transformers
 transformers==4.55.0
 tokenizers==0.21.4
 datasets==4.0.0
@@ -23,9 +19,7 @@ accelerate==1.10.0
 safetensors==0.6.2
 huggingface-hub==0.34.4
 
-# ==============================
-# Reinforcement Learning
-# ==============================
+# RL gymnasium and training
 gymnasium==1.2.0
 stable-baselines3==2.7.0
 shimmy==2.0.0
@@ -33,72 +27,37 @@ ale-py==0.11.2
 pettingzoo>=1.24,<1.27
 pygame==2.6.1
 
-# ==============================
-# Scientific Computing
-# ==============================
-scikit-learn
-statsmodels==0.14.5
-
-# ==============================
-# Tensor Manipulation
-# ==============================
 einops==0.8.1
 
-# ==============================
-# Computer Vision
-# ==============================
+# CV
 opencv-python-headless==4.10.0.84
 Pillow==11.3.0
 
-# ==============================
-# Graphs
-# ==============================
+# Graph DB
 networkx==3.5
 
-# ==============================
-# Data Structures
-# ==============================
+# DSA 
 sortedcontainers==2.4.0
 
-# ==============================
-# Experiment Tracking
-# ==============================
+# Observibility
 tensorboard==2.20.0
 wandb==0.21.1
 
-# ==============================
-# Configuration
-# ==============================
+# Config 
 omegaconf==2.3.0
 PyYAML==6.0.2
 
-# ==============================
 # Utilities
-# ==============================
 tqdm==4.67.1
 rich==14.1.0
 joblib==1.5.1
 requests==2.32.5
+psutil==7.0.0
 
-# ==============================
-# Interactive Development
-# ==============================
-jupyterlab==4.4.5
-ipykernel==6.30.1
-ipywidgets==8.1.7
-
-# ==============================
-# TUI (Text User Interface)
-# ==============================
-textual>=0.50.0
-
-# ==============================
-# GUI (Graphical User Interface)
-# ==============================
+# GUI
 PyQt6>=6.5.0
 matplotlib>=3.7.0
 
-# ==============================
-# Profiling
-# ==============================
-psutil==7.0.0
+# Finance Data
+yfinance>=0.2.0
+

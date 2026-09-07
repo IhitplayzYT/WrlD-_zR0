@@ -4,6 +4,9 @@ import numpy as np
 from enum import Enum
 import random
 from datetime import datetime
+from src.utils.logging import get_logger, LogCategory
+
+logger = get_logger()
 
 
 class PredictionType(Enum):
@@ -611,8 +614,7 @@ if __name__ == "__main__":
     # Simulate triggering
     system.step_counter = 19
     should_trigger = system.should_trigger()
-    print(f"Should trigger: {should_trigger}")
-    print(f"System state: {system.get_state()}")
+    logger.info(LogCategory.EVENT, f"Black box trigger test", data={'should_trigger': should_trigger, 'state': system.get_state()})
     
     # Create test predictions
     pred1 = Prediction(
@@ -637,31 +639,22 @@ if __name__ == "__main__":
     system.submit_prediction("agent_1", pred1)
     system.submit_prediction("agent_2", pred2)
     
-    print(f"\nSubmitted predictions: {len(system.current_predictions)}")
+    logger.info(LogCategory.EVENT, f"Submitted predictions", data={'count': len(system.current_predictions)})
     
     # Get ensemble prediction
     ensemble = system.get_ensemble_prediction()
-    print(f"Ensemble prediction: {ensemble}")
+    logger.debug(LogCategory.EVENT, f"Ensemble prediction", data={'ensemble': ensemble})
     
     # Get market consensus
     consensus = system.get_market_consensus()
-    print(f"Market consensus: {consensus}")
+    logger.debug(LogCategory.EVENT, f"Market consensus", data={'consensus': consensus})
     
     # Evaluate predictions
     actual_values = [105.5, 106.2, 106.8, 107.5, 108.0]
     results = system.evaluate_predictions(actual_values)
     
-    print(f"\nEvaluation results:")
-    for result in results:
-        print(f"  Agent {result.prediction.agent_id}: "
-              f"Accuracy={result.accuracy_score:.3f}, "
-              f"Multiplier={result.reward_multiplier:.2f}, "
-              f"Villain Points={result.villain_points_earned}, "
-              f"Is King={result.is_king}")
+    logger.info(LogCategory.EVALUATION, f"Evaluation results", data={'results': [{'agent_id': r.prediction.agent_id, 'accuracy': r.accuracy_score, 'multiplier': r.reward_multiplier, 'villain_points': r.villain_points_earned, 'is_king': r.is_king} for r in results]})
     
     # Get leaderboard
     leaderboard = system.get_leaderboard()
-    print(f"\nLeaderboard:")
-    for entry in leaderboard:
-        print(f"  {entry.agent_id}: Reputation={entry.reputation_score:.3f}, "
-              f"Accuracy={entry.accuracy:.3f}")
+    logger.info(LogCategory.EVALUATION, f"Leaderboard", data={'leaderboard': [{'agent_id': e.agent_id, 'reputation': e.reputation_score, 'accuracy': e.accuracy} for e in leaderboard]})

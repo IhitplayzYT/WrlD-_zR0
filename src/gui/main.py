@@ -70,6 +70,8 @@ class PriceGraph(QWidget):
         self.selected_stock = list(price_history.keys())[0] if price_history else "AAPL"
         self.zoom_level = 1.0
         self.black_box_periods = []  # List of (start, end) tuples for black box periods
+        self.active_black_box = None  # Currently active black box period (start, end)
+        self.historical_black_boxes = []  # Historical black box periods for highlights
         
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
@@ -84,12 +86,21 @@ class PriceGraph(QWidget):
     
     def add_black_box_period(self, start_idx: int, end_idx: int):
         """Add a black box period to highlight"""
-        self.black_box_periods.append((start_idx, end_idx))
+        self.active_black_box = (start_idx, end_idx)
         self.update_graph()
+    
+    def end_black_box_period(self):
+        """End the current black box period and move to history"""
+        if self.active_black_box:
+            self.historical_black_boxes.append(self.active_black_box)
+            self.active_black_box = None
+            self.update_graph()
     
     def clear_black_box_periods(self):
         """Clear all black box periods"""
         self.black_box_periods = []
+        self.active_black_box = None
+        self.historical_black_boxes = []
         self.update_graph()
     
     def update_graph(self):
@@ -116,10 +127,20 @@ class PriceGraph(QWidget):
             elif prices[i] < prices[i-1]:
                 ax.plot([i-1, i], [prices[i-1], prices[i]], 'r-', linewidth=2)
         
-        # Highlight black box periods
-        for start, end in self.black_box_periods:
+        # Highlight active black box period with greyed out region
+        if self.active_black_box:
+            start, end = self.active_black_box
             if start < len(prices) and end <= len(prices):
-                ax.axvspan(start, end, alpha=0.3, color='gray', label='Black Box')
+                ax.axvspan(start, end, alpha=0.5, color='gray', label='Active Black Box')
+        
+        # Highlight historical black box periods with small highlights on axes
+        for start, end in self.historical_black_boxes:
+            if start < len(prices) and end <= len(prices):
+                # Add small highlight region on x-axis
+                ax.axvspan(start, end, alpha=0.15, color='yellow', ymin=0, ymax=0.05)
+                # Add vertical line markers at boundaries
+                ax.axvline(x=start, color='orange', linestyle=':', alpha=0.7, linewidth=1)
+                ax.axvline(x=end, color='orange', linestyle=':', alpha=0.7, linewidth=1)
         
         ax.set_title(f"{self.selected_stock} Price Chart")
         ax.set_xlabel("Time")
@@ -127,8 +148,16 @@ class PriceGraph(QWidget):
         ax.grid(True, alpha=0.3)
         
         # Add legend if there are black box periods
-        if self.black_box_periods:
-            ax.legend()
+        if self.active_black_box or self.historical_black_boxes:
+            legend_elements = []
+            if self.active_black_box:
+                from matplotlib.patches import Patch
+                legend_elements.append(Patch(facecolor='gray', alpha=0.5, label='Active Black Box'))
+            if self.historical_black_boxes:
+                from matplotlib.patches import Patch
+                legend_elements.append(Patch(facecolor='yellow', alpha=0.15, label='Historical Black Box'))
+            if legend_elements:
+                ax.legend(handles=legend_elements, loc='upper right')
         
         self.canvas.draw()
     
@@ -249,7 +278,16 @@ class AgentInspector(QWidget):
         text = f"Agent ID: {self.selected_agent}<br>"
         text += f"Type: {agent.get('agent_type', 'Unknown')}<br>"
         text += f"Cash: ${agent.get('cash', 0):.2f}<br>"
-        text += f"Holdings: {agent.get('holdings', 0)}<br>"
+        
+        # Display multi-asset holdings
+        holdings = agent.get('holdings', {})
+        if isinstance(holdings, dict):
+            text += "Holdings:<br>"
+            for asset, qty in holdings.items():
+                text += f"  {asset}: {qty}<br>"
+        else:
+            text += f"Holdings: {holdings}<br>"
+        
         text += f"Total Value: ${agent.get('total_value', 0):.2f}<br>"
         
         # Add villain points if applicable
@@ -710,6 +748,8 @@ class TradingGUI(QMainWindow):
         if self.black_box_active:
             if self.update_counter - self.black_box_start_idx >= self.black_box_duration:
                 self.black_box_active = False
+                # End the black box period visualization
+                self.price_graph.end_black_box_period()
                 # Resample black box parameters if rng_bbox is set
                 if self.rng_bbox:
                     min_dur, max_dur, min_freq, max_freq = self.rng_bbox

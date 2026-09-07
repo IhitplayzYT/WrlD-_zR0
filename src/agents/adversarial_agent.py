@@ -21,78 +21,83 @@ class ManipulationStrategy:
         self,
         current_price: float,
         agent_cash: float,
-        agent_holdings: int
-    ) -> Tuple[int, int, float]:
+        agent_holdings: int,
+        asset_idx: int = 0
+    ) -> Tuple[int, int, int, float]:
         """
         Execute manipulation strategy.
-        Returns (action_type, quantity, price)
+        Returns (action_type, asset_idx, quantity, price)
         """
         if self.strategy_type == "pump_and_dump":
-            return self._pump_and_dump(current_price, agent_cash, agent_holdings)
+            return self._pump_and_dump(current_price, agent_cash, agent_holdings, asset_idx)
         elif self.strategy_type == "bear_raid":
-            return self._bear_raid(current_price, agent_cash, agent_holdings)
+            return self._bear_raid(current_price, agent_cash, agent_holdings, asset_idx)
         elif self.strategy_type == "spoofing":
-            return self._spoofing(current_price, agent_cash, agent_holdings)
+            return self._spoofing(current_price, agent_cash, agent_holdings, asset_idx)
         elif self.strategy_type == "layering":
-            return self._layering(current_price, agent_cash, agent_holdings)
+            return self._layering(current_price, agent_cash, agent_holdings, asset_idx)
         else:
-            return self._random_manipulation(current_price, agent_cash, agent_holdings)
+            return self._random_manipulation(current_price, agent_cash, agent_holdings, asset_idx)
     
     def _pump_and_dump(
         self,
         current_price: float,
         agent_cash: float,
-        agent_holdings: int
-    ) -> Tuple[int, int, float]:
+        agent_holdings: int,
+        asset_idx: int = 0
+    ) -> Tuple[int, int, int, float]:
         """Pump price up then sell"""
         # Phase 1: Buy aggressively to pump price
         if agent_holdings < 100:
             quantity = min(50, int(agent_cash / current_price))
-            return (1, quantity, current_price * 1.01)  # Market buy
+            return (1, asset_idx, quantity, current_price * 1.01)  # Market buy
         # Phase 2: Sell to dump
         else:
-            return (2, agent_holdings, current_price * 0.99)  # Market sell
+            return (2, asset_idx, agent_holdings, current_price * 0.99)  # Market sell
     
     def _bear_raid(
         self,
         current_price: float,
         agent_cash: float,
-        agent_holdings: int
-    ) -> Tuple[int, int, float]:
+        agent_holdings: int,
+        asset_idx: int = 0
+    ) -> Tuple[int, int, int, float]:
         """Drive price down aggressively"""
         # Short selling simulation (sell without holding)
         if agent_holdings >= 0:
             quantity = min(30, int(agent_cash / current_price))
-            return (2, quantity, current_price * 0.98)  # Aggressive sell
+            return (2, asset_idx, quantity, current_price * 0.98)  # Aggressive sell
         else:
             # Cover short position
-            return (1, abs(agent_holdings), current_price * 0.99)  # Buy to cover
+            return (1, asset_idx, abs(agent_holdings), current_price * 0.99)  # Buy to cover
     
     def _spoofing(
         self,
         current_price: float,
         agent_cash: float,
-        agent_holdings: int
-    ) -> Tuple[int, int, float]:
+        agent_holdings: int,
+        asset_idx: int = 0
+    ) -> Tuple[int, int, int, float]:
         """Place fake orders to create illusion of demand/supply"""
         # Place large limit orders then cancel them
         if random.random() < 0.5:
             # Fake buy order
             quantity = 100
             price = current_price * 1.02
-            return (3, quantity, price)  # Limit buy (will be cancelled)
+            return (3, asset_idx, quantity, price)  # Limit buy (will be cancelled)
         else:
             # Fake sell order
             quantity = 100
             price = current_price * 0.98
-            return (4, quantity, price)  # Limit sell (will be cancelled)
+            return (4, asset_idx, quantity, price)  # Limit sell (will be cancelled)
     
     def _layering(
         self,
         current_price: float,
         agent_cash: float,
-        agent_holdings: int
-    ) -> Tuple[int, int, float]:
+        agent_holdings: int,
+        asset_idx: int = 0
+    ) -> Tuple[int, int, int, float]:
         """Place multiple orders at different price levels"""
         # Place orders at multiple levels to create false depth
         level = random.randint(1, 5)
@@ -100,24 +105,25 @@ class ManipulationStrategy:
             # Buy side layering
             price = current_price * (1 - level * 0.005)
             quantity = 20
-            return (3, quantity, price)  # Limit buy
+            return (3, asset_idx, quantity, price)  # Limit buy
         else:
             # Sell side layering
             price = current_price * (1 + level * 0.005)
             quantity = 20
-            return (4, quantity, price)  # Limit sell
+            return (4, asset_idx, quantity, price)  # Limit sell
     
     def _random_manipulation(
         self,
         current_price: float,
         agent_cash: float,
-        agent_holdings: int
-    ) -> Tuple[int, int, float]:
+        agent_holdings: int,
+        asset_idx: int = 0
+    ) -> Tuple[int, int, int, float]:
         """Random manipulation strategy"""
         action_type = random.choice([1, 2, 3, 4])
         quantity = random.randint(10, 50)
         price = current_price * random.uniform(0.95, 1.05)
-        return (action_type, quantity, price)
+        return (action_type, asset_idx, quantity, price)
 
 
 class AdversarialAgent(BaseAgent):
@@ -214,25 +220,29 @@ class AdversarialAgent(BaseAgent):
             self.strategy_cooldown = self.current_strategy.cooldown
         
         # Execute strategy
-        current_price = processed_obs.get('current_price', 100.0)
+        available_assets = processed_obs.get('available_assets', [1.0] + [0.0] * 9)
+        asset_idx = int(np.argmax(available_assets))  # Select first available asset
+        current_price = processed_obs.get('current_price', [100.0] * 10)[asset_idx]
         agent_cash = self.state.cash
-        agent_holdings = self.state.holdings
+        agent_holdings = self.state.holdings.get(f'ASSET{asset_idx}', 0)
         
-        action_type, quantity, price = self.current_strategy.execute(
+        action_type, asset_idx, quantity, price = self.current_strategy.execute(
             current_price,
             agent_cash,
-            agent_holdings
+            agent_holdings,
+            asset_idx
         )
         
         # Apply trait modifications
-        base_action = np.array([action_type, quantity, price], dtype=np.float32)
+        base_action = np.array([action_type, asset_idx, quantity, price], dtype=np.float32)
         modified_action = self.apply_trait_modifications(base_action)
         
         # Store action
         self.state.last_action = {
             'type': int(modified_action[0]),
-            'quantity': int(modified_action[1]),
-            'price': float(modified_action[2]),
+            'asset_idx': int(modified_action[1]),
+            'quantity': int(modified_action[2]),
+            'price': float(modified_action[3]),
             'strategy': self.current_strategy.strategy_type if self.current_strategy else None
         }
         

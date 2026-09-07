@@ -7,13 +7,11 @@ from datetime import datetime, timedelta
 
 
 class OptionType(Enum):
-    """Types of options"""
     CALL = "call"
     PUT = "put"
 
 
 class ExerciseStyle(Enum):
-    """Exercise styles"""
     EUROPEAN = "european"
     AMERICAN = "american"
 
@@ -33,18 +31,14 @@ class OptionContract:
     is_active: bool = True
     
     def time_to_expiry(self, current_date: datetime) -> float:
-        """Calculate time to expiry in years"""
         delta = self.expiry_date - current_date
         return max(0.0, delta.days / 365.0)
     
     def is_expired(self, current_date: datetime) -> bool:
-        """Check if option is expired"""
         return current_date >= self.expiry_date
 
 
 class BlackScholesModel:
-    """Black-Scholes option pricing model."""
-    
     @staticmethod
     def d1(S: float, K: float, T: float, r: float, sigma: float) -> float:
         return (np.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
@@ -109,7 +103,6 @@ class BlackScholesModel:
 
 
 class OptionsPricingSystem:
-    """Comprehensive options pricing system."""
     
     def __init__(self, risk_free_rate: float = 0.02, default_volatility: float = 0.2):
         self.risk_free_rate = risk_free_rate
@@ -146,7 +139,7 @@ class OptionsPricingSystem:
         contract = self.contracts.get(contract_id)
         if not contract:
             raise ValueError(f"Contract {contract_id} not found")
-        
+
         S = self.underlying_prices.get(contract.underlying, 100.0)
         K = contract.strike_price
         T = contract.time_to_expiry(current_date)
@@ -163,24 +156,3 @@ class OptionsPricingSystem:
             'theta': 0.0,
             'rho': 0.0
         }
-
-
-if __name__ == "__main__":
-    system = OptionsPricingSystem()
-    
-    contract = OptionContract(
-        contract_id="AAPL_CALL_100",
-        underlying="AAPL",
-        option_type=OptionType.CALL,
-        strike_price=100.0,
-        expiry_date=datetime.now() + timedelta(days=30)
-    )
-    
-    system.add_contract(contract)
-    system.update_underlying_price("AAPL", 105.0)
-    
-    price = system.price_option("AAPL_CALL_100", datetime.now())
-    greeks = system.calculate_greeks("AAPL_CALL_100", datetime.now())
-    
-    print(f"Option Price: {price:.2f}")
-    print(f"Greeks: {greeks}")

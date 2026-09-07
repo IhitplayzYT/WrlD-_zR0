@@ -43,9 +43,19 @@ class LogEntry:
     def to_dict(self) -> Dict[str, Any]:
         return {'timestamp': self.timestamp.isoformat(),'level': self.level.value,'category': self.category.value,'message': self.message,'data': self.data,'source': self.source,'agent_id': self.agent_id,'episode': self.episode,'step': self.step}
 
+    def from_dict(self,dict: Dict[str,Any]):
+        self.timestamp = dict["timestamp"]
+        self.level = dict["level"]
+        self.category = dict["category"]
+        self.message = dict["message"]
+        self.data = dict["data"]
+        self.source = dict["source"]
+        self.agent_id = dict["agent_id"]
+        self.episode = dict["episode"]
+        self.step = dict["step"]
+        
+
 class LogFilter:
-    """ Filter log entries based on criteria. """
-    
     def __init__(self):
         self.level_filter: Optional[LogLevel] = None
         self.category_filter: Optional[LogCategory] = None
@@ -65,7 +75,7 @@ class LogFilter:
         
         if self.time_range:
             start, end = self.time_range
-            if not (start <= entry.timestamp <= end):
+            if (start > end) or not (start <= entry.timestamp <= end):
                 return False
         
         if self.message_pattern and not re.search(self.message_pattern, entry.message, re.IGNORECASE):
@@ -74,13 +84,10 @@ class LogFilter:
         return True
 
 
-
-# Used to compress and manage lifecycle of logs in logs/ dir
 class LogRotator:
-    """ Handle log rotation and compression. """
     
     def __init__(self, max_file_size: int = 10 * 1024 * 1024, max_files: int = 10):
-        self.max_file_size = max_file_size  # 10 MB default
+        self.max_file_size = max_file_size 
         self.max_files = max_files
     
     def should_rotate(self, log_file: Path) -> bool:
@@ -104,7 +111,6 @@ class LogRotator:
     
     def _cleanup_old_files(self, log_dir: Path):
         compressed_files = sorted(log_dir.glob("*.json.gz"), key=lambda p: p.stat().st_mtime)
-        
         while len(compressed_files) > self.max_files:
             compressed_files[0].unlink()
             compressed_files.pop(0)
@@ -128,10 +134,8 @@ class JSONLogger:
     
     def log(self,level: LogLevel,category: LogCategory,message: str,data: Optional[Dict[str, Any]] = None,source: str = "",agent_id: Optional[str] = None,episode: Optional[int] = None,step: Optional[int] = None):
         entry = LogEntry(timestamp=datetime.now(),level=level,category=category,message=message,data=data or {},source=source,agent_id=agent_id,episode=episode,step=step)
-        
         with self.lock:
             self.buffer.append(entry)
-            
             if len(self.buffer) >= self.buffer_size:
                 self.flush()
     
@@ -161,7 +165,6 @@ class JSONLogger:
         self.buffer.clear()
     
     def query(self,log_filter: Optional[LogFilter] = None,limit: int = 1000) -> List[LogEntry]:
-        """ Query log entries with filter. """
         entries = []
         if self.log_file.exists():
             with open(self.log_file, 'r') as f:

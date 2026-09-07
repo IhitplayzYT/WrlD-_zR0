@@ -15,7 +15,6 @@ class CLI:
     """ The Struct holding configuration for our Simulation """
     def __init__(self):
         self.dbg = False
-        self.tui = False
         self.gui = False
         self.n_agnts = 5
         self.mx_bad = int(self.n_agnts * 0.2)
@@ -28,15 +27,13 @@ class CLI:
         self.news = False 
         self.black_bx_dur = 5
         self.black_bx_freq = 20
-        self.event_file = None  # Path to JSON file with custom events
+        self.event_file = None 
         self.rng_bbox = None  # Random black box sampling: (min_dur, max_dur, min_freq, max_freq)
     
     def Parse(self):
         for i in sys.argv:
             if i.lower() in {"-d","--debug"}:
                 self.dbg = True
-            elif i.lower() in {"-tui","--tui"}:
-                self.tui = True
             elif i.lower() in {"-gui","--gui"}:
                 self.gui = True
             elif i.startswith("-rng_bbox=") or i.startswith("--random_bbox="):

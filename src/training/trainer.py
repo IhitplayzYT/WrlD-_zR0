@@ -10,6 +10,10 @@ import random
 
 from environment.market_env import MarketEnvironment
 from agents import BaseAgent, RLAIFAgent, AdversarialAgent, AgentType
+from src.utils.logging import get_logger, LogCategory
+from src.tracking.experiment import ExperimentTracker
+
+logger = get_logger()
 
 
 @dataclass
@@ -114,7 +118,7 @@ class CurriculumManager:
             self.current_level += 1
             self.level_history.append(self.current_level)
             self.performance_history.clear()
-            print(f"Progressed to curriculum level {self.current_level}: {self.levels[self.current_level].description}")
+            logger.info(LogCategory.TRAINING, f"Progressed to curriculum level {self.current_level}: {self.levels[self.current_level].description}")
     
     def reset(self):
         """Reset curriculum to level 0"""
@@ -225,6 +229,13 @@ class TrainingPipeline:
         # Logging
         self.training_log = []
         self.start_time = datetime.now()
+        
+        # Experiment tracking
+        self.experiment_tracker = ExperimentTracker(
+            log_dir=config.log_dir,
+            experiment_name=f"training_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        )
+        self.experiment_tracker.log_hyperparameters(config.__dict__)
     
     def create_environment(self, curriculum_level: Optional[CurriculumLevel] = None) -> MarketEnvironment:
         """Create environment with curriculum level configuration"""
@@ -370,9 +381,7 @@ class TrainingPipeline:
     
     def train(self):
         """Main training loop"""
-        print(f"Starting training for {self.config.n_episodes} episodes")
-        print(f"Curriculum learning: {self.config.use_curriculum}")
-        print(f"Experience replay: {self.config.use_experience_replay}")
+        logger.info(LogCategory.TRAINING, f"Starting training for {self.config.n_episodes} episodes", data={'n_episodes': self.config.n_episodes, 'curriculum_learning': self.config.use_curriculum, 'experience_replay': self.config.use_experience_replay})
         
         # Create initial environment
         self.env = self.create_environment()
@@ -412,7 +421,7 @@ class TrainingPipeline:
         self._save_checkpoint(self.config.n_episodes)
         self._save_training_log()
         
-        print("Training completed!")
+        logger.info(LogCategory.TRAINING, "Training completed")
         self._print_summary()
     
     def _log_progress(self, episode: int, metrics: Dict[str, float]):
@@ -432,15 +441,27 @@ class TrainingPipeline:
         
         self.training_log.append(log_entry)
         
-        print(f"Episode {episode}: Reward={metrics['episode_reward']:.2f}, "
-              f"Avg={avg_reward:.2f}, Length={metrics['episode_length']}, "
-              f"Level={log_entry['curriculum_level']}")
+        logger.info(LogCategory.TRAINING, f"Episode {episode} progress", data={'episode': episode, 'reward': metrics['episode_reward'], 'avg_reward': avg_reward, 'length': metrics['episode_length'], 'curriculum_level': log_entry['curriculum_level']})
+        
+        # Log metrics to experiment tracker
+        self.experiment_tracker.log_metrics({
+            'episode_reward': metrics['episode_reward'],
+            'average_reward': avg_reward,
+            'episode_length': metrics['episode_length'],
+            'curriculum_level': log_entry['curriculum_level']
+        }, step=episode)
     
     def _log_evaluation(self, episode: int, metrics: Dict[str, float]):
         """Log evaluation results"""
-        print(f"Evaluation at episode {episode}: "
-              f"Mean Reward={metrics['mean_reward']:.2f} (+/- {metrics['std_reward']:.2f}), "
-              f"Max={metrics['max_reward']:.2f}")
+        logger.info(LogCategory.EVALUATION, f"Evaluation at episode {episode}", data={'episode': episode, 'mean_reward': metrics['mean_reward'], 'std_reward': metrics['std_reward'], 'max_reward': metrics['max_reward']})
+        
+        # Log evaluation metrics to experiment tracker
+        self.experiment_tracker.log_metrics({
+            f'eval_mean_reward': metrics['mean_reward'],
+            f'eval_std_reward': metrics['std_reward'],
+            f'eval_max_reward': metrics['max_reward'],
+            f'eval_min_reward': metrics['min_reward']
+        }, step=episode)
     
     def _save_checkpoint(self, episode: int):
         """Save training checkpoint"""
@@ -466,32 +487,32 @@ class TrainingPipeline:
             checkpoint['agent_models'] = agent_models
         
         torch.save(checkpoint, checkpoint_path)
-        print(f"Saved checkpoint: {checkpoint_path}")
+        logger.info(LogCategory.TRAINING, f"Saved checkpoint", data={'episode': episode, 'checkpoint_path': str(checkpoint_path)})
     
     def _save_training_log(self):
         """Save training log to JSON"""
         log_path = Path(self.config.log_dir) / "training_log.json"
         with open(log_path, 'w') as f:
             json.dump(self.training_log, f, indent=2)
-        print(f"Saved training log: {log_path}")
+        logger.info(LogCategory.TRAINING, f"Saved training log", data={'log_path': str(log_path)})
     
     def _print_summary(self):
         """Print training summary"""
-        print("\n" + "=" * 50)
-        print("Training Summary")
-        print("=" * 50)
-        print(f"Total episodes: {self.current_episode + 1}")
-        print(f"Average reward: {np.mean(self.episode_rewards):.2f}")
-        print(f"Max reward: {np.max(self.episode_rewards):.2f}")
-        print(f"Min reward: {np.min(self.episode_rewards):.2f}")
-        print(f"Average episode length: {np.mean(self.episode_lengths):.2f}")
+        summary_data = {
+            'total_episodes': self.current_episode + 1,
+            'average_reward': float(np.mean(self.episode_rewards)),
+            'max_reward': float(np.max(self.episode_rewards)),
+            'min_reward': float(np.min(self.episode_rewards)),
+            'average_episode_length': float(np.mean(self.episode_lengths)),
+            'final_curriculum_level': self.curriculum_manager.current_level if self.curriculum_manager else 0,
+            'level_progression': self.curriculum_manager.level_history if self.curriculum_manager else [],
+            'training_duration': str(datetime.now() - self.start_time)
+        }
+        logger.info(LogCategory.TRAINING, "Training Summary", data=summary_data)
         
-        if self.curriculum_manager:
-            print(f"Final curriculum level: {self.curriculum_manager.current_level}")
-            print(f"Level progression: {self.curriculum_manager.level_history}")
-        
-        print(f"Training duration: {datetime.now() - self.start_time}")
-        print("=" * 50)
+        # Log final summary to experiment tracker
+        self.experiment_tracker.log_summary(summary_data)
+        self.experiment_tracker.finish()
 
 
 if __name__ == "__main__":

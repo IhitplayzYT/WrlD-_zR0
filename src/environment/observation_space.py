@@ -4,6 +4,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 from enum import Enum
+from src.utils.logging import get_logger, LogCategory
+
+logger = get_logger()
 
 
 class Regime(Enum):
@@ -476,7 +479,7 @@ def create_enhanced_observation_space(
             )
             obs_space.temporal_extractor.eval()
         except Exception as e:
-            print(f"Warning: Could not load pretrained model: {e}")
+            logger.warning(LogCategory.SYSTEM, f"Could not load pretrained model", data={'error': str(e)})
     
     return obs_space
 
@@ -518,14 +521,6 @@ if __name__ == "__main__":
     # Create enhanced observation
     enhanced_obs = obs_space.create_observation(base_obs, agent_state, market_state)
     
-    print("Enhanced Observation Components:")
-    for key, value in enhanced_obs.items():
-        if isinstance(value, np.ndarray):
-            print(f"  {key}: shape={value.shape}")
-        else:
-            print(f"  {key}: {value}")
+    logger.debug(LogCategory.SYSTEM, "Enhanced Observation Components", data=enhanced_obs)
     
-    print("\nObservation Space Sizes:")
-    sizes = obs_space.get_observation_space_size()
-    for key, shape in sizes.items():
-        print(f"  {key}: {shape}")
+    logger.debug(LogCategory.SYSTEM, "Observation Space Sizes", data=obs_space.get_observation_space_size())

@@ -14,7 +14,6 @@ class AgentType(Enum):
 @dataclass
 class AgentTraits:
     """
-    Comprehensive trait system for agent behavior modification.
     Traits influence decision-making, risk tolerance, and trading patterns.
     """
     # Risk-related traits
@@ -53,9 +52,7 @@ class AgentTraits:
     timing_precision: float = 0.5  # Precision in timing entries/exits
     
     def mutate(self, mutation_rate: float = 0.1, mutation_strength: float = 0.2):
-        """
-        Evolve traits through mutation for agent reproduction.
-        """
+        """ Evolve traits by mutation """
         for trait_name, trait_value in self.__dict__.items():
             if isinstance(trait_value, float) and random.random() < mutation_rate:
                 mutation = random.uniform(-mutation_strength, mutation_strength)
@@ -63,9 +60,7 @@ class AgentTraits:
                 setattr(self, trait_name, new_value)
     
     def crossover(self, other: 'AgentTraits') -> 'AgentTraits':
-        """
-        Create new traits through crossover with another agent's traits.
-        """
+        """ Create new traits through crossover """
         new_traits = AgentTraits()
         for trait_name in self.__dict__.keys():
             if isinstance(getattr(self, trait_name), float):
@@ -81,37 +76,30 @@ class AgentTraits:
         modifiers = {}
         
         # Risk modifier based on risk tolerance and loss aversion
-        modifiers['risk_modifier'] = (self.risk_tolerance * 0.7 + 
-                                     (1 - self.loss_aversion) * 0.3)
+        modifiers['risk_modifier'] = self.risk_tolerance * 0.7 + (1 - self.loss_aversion) * 0.3
         
         # Patience modifier
         modifiers['patience_modifier'] = self.patience
         
         # Trend following modifier
-        modifiers['trend_modifier'] = (self.trend_following * 0.6 + 
-                                      (1 - self.contrarian_bias) * 0.4)
+        modifiers['trend_modifier'] = self.trend_following * 0.6 + (1 - self.contrarian_bias) * 0.4
         
         # Information processing modifier
-        total_info_weight = (self.information_weight + 
-                           self.technical_analysis_weight + 
-                           self.fundamental_analysis_weight)
+        total_info_weight = self.information_weight + self.technical_analysis_weight + self.fundamental_analysis_weight
+
         if total_info_weight > 0:
             modifiers['info_processing_modifier'] = total_info_weight / 3.0
         else:
             modifiers['info_processing_modifier'] = 0.5
         
         # Social influence modifier
-        modifiers['social_modifier'] = (self.herd_behavior * 0.7 + 
-                                      (1 - self.confidence_level) * 0.3)
+        modifiers['social_modifier'] = self.herd_behavior * 0.7 + (1 - self.confidence_level) * 0.3
         
         # Learning modifier
-        modifiers['learning_modifier'] = (self.adaptability * 0.5 + 
-                                         self.exploration_rate * 0.3 +
-                                         self.memory_importance * 0.2)
+        modifiers['learning_modifier'] = self.adaptability * 0.5 + self.exploration_rate * 0.3 + self.memory_importance * 0.2
         
         # Trading style modifier
-        modifiers['trading_style_modifier'] = (self.limit_order_preference * 0.6 +
-                                              self.timing_precision * 0.4)
+        modifiers['trading_style_modifier'] = self.limit_order_preference * 0.6 + self.timing_precision * 0.4
         
         return modifiers
 
@@ -120,11 +108,12 @@ class AgentTraits:
 class AgentState:
     """
     Current state of an agent in the simulation.
+    Holdings is now a dict mapping asset names to quantities for multi-asset portfolios.
     """
     agent_id: str
     agent_type: AgentType
     cash: float
-    holdings: int
+    holdings: Dict[str, int]  # asset_name -> quantity
     total_value: float
     is_bad: bool = False
     villain_points: int = 0
@@ -133,24 +122,24 @@ class AgentState:
     last_action: Optional[Dict] = None
     profit_history: List[float] = field(default_factory=list)
     traits: Optional[AgentTraits] = None
+    mem_capacity: int = 100
     episode_performance: Dict[str, float] = field(default_factory=dict)
     memory: List[Dict] = field(default_factory=list)  # Agent's memory of past events
     age: int = 0  # Number of episodes agent has participated in
     
-    def update_portfolio_value(self, current_price: float):
-        """Update total portfolio value based on current price"""
-        self.total_value = self.cash + (self.holdings * current_price)
-        profit = self.total_value - 1000.0  # Assuming initial capital of 1000
-        self.profit_history.append(profit)
+    def update_portfolio_value(self, current_prices: Dict[str, float], initial_capital: float):
+        """Update total portfolio value based on current prices of all assets"""
+        holdings_value = sum(quantity * current_prices.get(asset, 0.0) 
+                           for asset, quantity in self.holdings.items())
+        self.total_value = self.cash + holdings_value
+        self.profit_history.append(self.total_value - initial_capital)
     
-    def add_memory(self, memory_entry: Dict):
-        """Add a memory entry (limited to recent memories)"""
-        self.memory.append(memory_entry)
-        if len(self.memory) > 100:  # Keep last 100 memories
+    def add_memory(self, memory: Dict):
+        self.memory.append(memory)
+        if len(self.memory) > self.mem_capacity: 
             self.memory.pop(0)
     
     def get_recent_performance(self, window: int = 10) -> float:
-        """Get average performance over recent window"""
         if len(self.profit_history) < window:
             window = len(self.profit_history)
         if window == 0:
@@ -164,73 +153,47 @@ class BaseAgent:
     All specific agent types (RLAIF, Adversarial) inherit from this base class.
     """
     
-    def __init__(
-        self,
-        agent_id: str,
-        agent_type: AgentType = AgentType.BASE,
-        initial_cash: float = 1000.0,
-        traits: Optional[AgentTraits] = None
-    ):
+    def __init__(self,agent_id: str,agent_type: AgentType = AgentType.BASE,initial_cash: float = 1000.0,traits: Optional[AgentTraits] = None):
         self.agent_id = agent_id
         self.agent_type = agent_type
         self.initial_cash = initial_cash
-        
-        # Initialize traits
         if traits is None:
             self.traits = AgentTraits()
         else:
             self.traits = traits
-        
-        # Initialize state
-        self.state = AgentState(
-            agent_id=agent_id,
-            agent_type=agent_type,
-            cash=initial_cash,
-            holdings=0,
-            total_value=initial_cash,
-            traits=self.traits
-        )
-        
-        # Agent lifecycle
+        self.state = AgentState(agent_id=agent_id,agent_type=agent_type,cash=initial_cash,holdings={},total_value=initial_cash,traits=self.traits)
         self.is_alive = True
         self.generation = 0  # Generation in evolutionary process
-        
-    def decide_action(
-        self,
-        observation: Dict[str, Any],
-        action_space: Any
-    ) -> np.ndarray:
-        """
-        Decide on an action based on current observation.
-        This is the main decision-making interface that should be overridden by subclasses.
-        
-        Args:
-            observation: Current observation from environment
-            action_space: Available action space
             
-        Returns:
-            Action as numpy array [action_type, quantity, price]
+    def decide_action(self,observation: Dict[str, Any],action_space: Any) -> np.ndarray:
         """
-        # Default implementation: random action
-        # Subclasses should override this with their specific logic
+        Decide action. For multi-asset portfolios, action format is:
+        [action_type, asset_idx, quantity, price]
+        action_type: 0=hold, 1=market_buy, 2=market_sell, 3=limit_buy, 4=limit_sell
+        asset_idx: Index of asset to trade (for multi-asset portfolios)
+        """
+        available_assets = observation.get('available_assets', ['AAPL'])
+        asset_idx = random.randint(0, len(available_assets) - 1) if available_assets else 0
+        
         action_type = random.randint(0, 4)  # 0=hold, 1=market_buy, 2=market_sell, 3=limit_buy, 4=limit_sell
         quantity = random.randint(1, 100)
         price = random.uniform(90.0, 110.0)
         
-        return np.array([action_type, quantity, price], dtype=np.float32)
+        return np.array([action_type, asset_idx, quantity, price], dtype=np.float32)
     
     def apply_trait_modifications(self, base_action: np.ndarray) -> np.ndarray:
         """
         Apply trait-based modifications to base action.
-        This allows traits to influence the final decision.
+        Action format: [action_type, asset_idx, quantity, price]
         """
         modifiers = self.traits.get_behavior_modifiers()
         action = base_action.copy()
         
         # Modify action based on traits
         action_type = int(action[0])
-        quantity = int(action[1])
-        price = action[2]
+        asset_idx = int(action[1])
+        quantity = int(action[2])
+        price = action[3]
         
         # Risk modifier affects position sizing
         if action_type in [1, 3]:  # Buy actions
@@ -249,8 +212,8 @@ class BaseAgent:
             price_adjustment = (modifiers['trading_style_modifier'] - 0.5) * 0.1
             price = price * (1.0 + price_adjustment)
         
-        action[1] = max(1, quantity)  # Ensure minimum quantity
-        action[2] = max(0.1, price)    # Ensure positive price
+        action[2] = max(1, quantity)  # Ensure minimum quantity
+        action[3] = max(0.1, price)    # Ensure positive price
         
         return action
     
@@ -355,7 +318,7 @@ class BaseAgent:
             agent_id=self.agent_id,
             agent_type=self.agent_type,
             cash=cash,
-            holdings=0,
+            holdings={},
             total_value=cash,
             traits=self.traits,
             age=self.state.age + 1

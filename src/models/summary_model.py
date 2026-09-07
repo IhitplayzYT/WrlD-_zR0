@@ -4,6 +4,9 @@ from enum import Enum
 from datetime import datetime
 import re
 from collections import Counter
+from src.utils.logging import get_logger, LogCategory
+
+logger = get_logger()
 
 
 class SummaryType(Enum):
@@ -200,28 +203,20 @@ if __name__ == "__main__":
     price_history = [100.0, 101.0, 102.0, 103.0, 104.0]
     
     market_summary = model.summarize_market_activity(market_state, price_history, volume=1500, n_steps=100)
-    print("Market Activity Summary:")
-    print(market_summary.content)
-    print(f"Key Points: {market_summary.key_points}\n")
+    logger.info(LogCategory.EVALUATION, "Market Activity Summary", data={'content': market_summary.content, 'key_points': market_summary.key_points})
     
     agent_state = {'risk_tolerance': 0.7}
     trade_history = [{'profit': 10}, {'profit': -5}, {'profit': 15}]
     performance = {'total_return': 0.15, 'avg_profit': 6.67}
     
     agent_summary = model.summarize_agent_behavior("agent_0", agent_state, trade_history, performance)
-    print("Agent Behavior Summary:")
-    print(agent_summary.content)
-    print(f"Key Points: {agent_summary.key_points}\n")
+    logger.info(LogCategory.AGENT, "Agent Behavior Summary", data={'content': agent_summary.content, 'key_points': agent_summary.key_points})
     
     trend_summary = model.summarize_trend_analysis(price_history, regime="bull", regime_confidence=0.8)
-    print("Trend Analysis Summary:")
-    print(trend_summary.content)
-    print(f"Key Points: {trend_summary.key_points}\n")
+    logger.info(LogCategory.MARKET, "Trend Analysis Summary", data={'content': trend_summary.content, 'key_points': trend_summary.key_points})
     
     agent_performances = {'agent_0': 0.15, 'agent_1': 0.08, 'agent_2': -0.05}
     overview = model.generate_overview(agent_performances, market_state, n_events=5, n_steps=100)
-    print("Overview Summary:")
-    print(overview.content)
-    print(f"Key Points: {overview.key_points}\n")
+    logger.info(LogCategory.EVALUATION, "Overview Summary", data={'content': overview.content, 'key_points': overview.key_points})
     
-    print("Summary model test completed")
+    logger.info(LogCategory.SYSTEM, "Summary model test completed")

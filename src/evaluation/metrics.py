@@ -3,7 +3,11 @@ from typing import Dict, List, Optional, Any, Tuple
 import numpy as np
 from scipy import stats
 from enum import Enum
+from src.utils.logging import get_logger, LogCategory
+
 TRADING_DAYS = 252
+
+logger = get_logger()
 
 class MetricType(Enum):
     PROFITABILITY = "profitability"
@@ -402,15 +406,13 @@ if __name__ == "__main__":
     
     metrics = calculator.calculate_metrics(returns=returns,portfolio_values=portfolio_values,market_returns=market_returns)
     
-    print("Performance Metrics:")
-    for key, value in metrics.to_dict().items():
-        print(f"  {key}: {value:.4f}")
+    logger.info(LogCategory.EVALUATION, "Performance Metrics", data=metrics.to_dict())
     
     tester = StatisticalSignificanceTester(n_bootstrap=1000)
     baseline_returns = np.random.normal(0.0005, 0.015, 252).tolist()
     
     bootstrap_result = tester.bootstrap_test(returns, baseline_returns, metric="mean")
-    print(f"\nBootstrap Test: {bootstrap_result}")
+    logger.info(LogCategory.EVALUATION, "Bootstrap Test", data=bootstrap_result)
     
     permutation_result = tester.permutation_test(returns, baseline_returns, metric="mean")
-    print(f"Permutation Test: {permutation_result}")
+    logger.info(LogCategory.EVALUATION, "Permutation Test", data=permutation_result)

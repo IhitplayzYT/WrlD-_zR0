@@ -6,6 +6,9 @@ from enum import Enum
 import random
 from datetime import datetime, timedelta
 import numpy as np
+from src.utils.logging import get_logger, LogCategory
+
+logger = get_logger()
 
 
 class NewsCategory(Enum):
@@ -492,14 +495,7 @@ if __name__ == "__main__":
     for category in NewsCategory:
         news = news_system.news_generator.generate_news(category, market_state)
         news_system.add_news(news)
-        print(f"\n{category.value.upper()}:")
-        print(f"  Headline: {news.headline}")
-        print(f"  Sentiment: {news.sentiment.value} ({news.sentiment_score:.2f})")
-        print(f"  Price Impact: {news.price_impact_estimate:.2%}")
+        logger.info(LogCategory.EVENT, f"{category.value.upper()} news generated", data={'headline': news.headline, 'sentiment': news.sentiment.value, 'sentiment_score': news.sentiment_score, 'price_impact': news.price_impact_estimate})
     
     impact = news_system.calculate_news_impact()
-    print(f"\nAggregate Impact:")
-    print(f"  Total Price Impact: {impact['total_price_impact']:.2%}")
-    print(f"  Total Volume Impact: {impact['total_volume_impact']:.2%}")
-    print(f"  Sentiment Score: {impact['sentiment_score']:.2f}")
-    print(f"  News Count: {impact['news_count']}")
+    logger.info(LogCategory.EVENT, "Aggregate Impact", data=impact)

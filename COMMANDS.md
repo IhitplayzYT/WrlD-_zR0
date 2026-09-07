@@ -1,59 +1,9 @@
 # RLAIF Trading Simulation - Command Reference
 
-## Basic Simulation Commands
 
 ### Run Standard Simulation
 ```bash
 python src/main.py
-```
-
-### Run with Debug Mode
-```bash
-python src/main.py -d
-# or
-python src/main.py --debug
-```
-
-### Run with TUI (Text User Interface)
-```bash
-python src/main.py -tui
-# or
-python src/main.py --tui
-```
-
-### Configure Number of Agents
-```bash
-python src/main.py -n=10
-# or
-python src/main.py --n_agents=10
-```
-
-### Configure Maximum Bad Agents
-```bash
-python src/main.py -m_bad=3
-# or
-python src/main.py --max_bad=3
-```
-
-### Configure Episode Length
-```bash
-python src/main.py -l_ep=500
-# or
-python src/main.py --episode_len=500
-```
-
-### Configure Movements Per Day
-```bash
-python src/main.py -e_mov=20
-# or
-python src/main.py --everyday_movement=20
-```
-
-### Configure Initial Cash Amount
-```bash
-python src/main.py -amnt=10000
-# or
-python src.main.py --initial_amnt=10000
 ```
 
 ### Load Custom Stock Data
@@ -63,26 +13,6 @@ python src/main.py -stock=GOOGL:/path/to/googl.xlsx
 python src/main.py -stock=TSLA:/path/to/tsla.pdf
 ```
 
-### Configure Event Probabilities
-```bash
-python src/main.py -p_good=0.6 -p_bad=0.4 -p_crit=0.02
-# or
-python src/main.py --prob_good=0.6 --prob_bad=0.4 --prob_critical=0.02
-```
-
-### Enable News System
-```bash
-python src/main.py -news
-# or
-python src/main.py --news
-```
-
-### Configure Black Box Settings
-```bash
-python src/main.py -bb_dur=10 -bb_freq=30
-# or
-python src/main.py --bbox_duration=10 --bbox_frequency=30
-```
 
 ### Load Custom Events from JSON
 ```bash
@@ -146,13 +76,6 @@ pipeline = TrainingPipeline(config)
 pipeline.train()
 ```
 
-## Model Save/Load Commands
-
-### Save Model Weights (Automatic during training)
-The training pipeline automatically saves checkpoints at regular intervals:
-- Checkpoint frequency: Every 100 episodes (configurable)
-- Final checkpoint: Always saved at end of training
-- Location: `./checkpoints/` directory (configurable)
 
 ### Load Saved Model
 ```python

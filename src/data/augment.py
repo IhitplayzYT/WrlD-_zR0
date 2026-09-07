@@ -43,7 +43,7 @@ class Augmenter:
         while len(data_list) < self.min_data_len:
             # Pick random locality length (between 5 and 20% of current data, varies each iteration)
             mn_perc,mx_perc = random.uniform(0.05, 0.10),random.uniform(0.15, 0.30)
-            mn_slic,mx_slice = max(5, int(cur_l * mn_perc)),max(10, int(cur_l * mx_perc))    
+            mn_slice,mx_slice = max(5, int(cur_l * mn_perc)),max(10, int(cur_l * mx_perc))    
             rand_l = random.randint(mn_slice, mx_slice)
             strt,ed = random.randint(0, max(0, cur_l - rand_l)),min(cur_l, strt + rand_l)
             augmented_snippet = self.apply_volatility_transform(data_list[strt:ed])
@@ -117,7 +117,7 @@ class Augmenter:
             current_data = episode_data
         return episodes
 
-    def random_episode_swap(df: List[List[float]]) -> List[List[float]]:
+    def random_episode_swap(self,df: List[List[float]]) -> List[List[float]]:
         l = len(df)
         n_swap = random.randint(1,l//4)
         ret = df.copy()
@@ -128,7 +128,7 @@ class Augmenter:
         return ret
 
         
-    def augment_stock_data(df: pl.DataFrame, n_episodes: int, episode_day_len: int, each_day_movements: int) -> List[List[float]]:
+    def augment_stock_data(self,df: pl.DataFrame, n_episodes: int, episode_day_len: int, each_day_movements: int) -> List[List[float]]:
         """ Main function to augment stock data """
         augmenter = Augmenter(df, n_episodes, episode_day_len, each_day_movements)
-        return random_episode_swap(augmenter.generate_all_episodes())
+        return self.random_episode_swap(augmenter.generate_all_episodes())

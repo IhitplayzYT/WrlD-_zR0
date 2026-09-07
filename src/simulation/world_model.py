@@ -5,6 +5,9 @@ import torch
 import torch.nn as nn
 from enum import Enum
 from collections import deque
+from src.utils.logging import get_logger, LogCategory
+
+logger = get_logger()
 
 
 class WorldModelType(Enum):
@@ -644,18 +647,16 @@ if __name__ == "__main__":
     action = np.random.randn(action_dim)
     
     next_state, uncertainty = world_model.predict_next_state(state, action)
-    print(f"Predicted next state shape: {next_state.shape}")
-    print(f"Uncertainty: {uncertainty:.4f}")
+    logger.debug(LogCategory.SYSTEM, "World model prediction test", data={'next_state_shape': next_state.shape, 'uncertainty': uncertainty})
     
     reward = world_model.predict_reward(state, action)
-    print(f"Predicted reward: {reward:.4f}")
+    logger.debug(LogCategory.SYSTEM, "Predicted reward", data={'reward': reward})
     
     # Test trajectory imagination
     action_sequence = [np.random.randn(action_dim) for _ in range(5)]
     states, rewards = world_model.imagine_trajectory(state, action_sequence)
-    print(f"Imagined trajectory length: {len(states)}")
-    print(f"Predicted rewards: {rewards}")
+    logger.debug(LogCategory.SYSTEM, "Imagined trajectory", data={'trajectory_length': len(states), 'predicted_rewards': rewards})
     
     # Test explanation
     explanation = world_model.get_explanation(action_sequence, rewards)
-    print(f"Explanation: {explanation}")
+    logger.info(LogCategory.SYSTEM, "World model explanation", data=explanation)

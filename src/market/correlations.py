@@ -5,6 +5,9 @@ from enum import Enum
 from scipy.stats import pearsonr, spearmanr
 from scipy.linalg import eigh
 import polars as pl
+from src.utils.logging import get_logger, LogCategory
+
+logger = get_logger()
 
 
 class CorrelationMethod(Enum):
@@ -357,22 +360,21 @@ if __name__ == "__main__":
     
     # Calculate correlations
     corr_matrix = analyzer.calculate_correlation_matrix()
-    print("Correlation Matrix:")
-    print(corr_matrix.matrix)
+    logger.debug(LogCategory.MARKET, "Correlation Matrix", data={'matrix': corr_matrix.matrix.tolist()})
     
     # Get highly correlated pairs
     pairs = corr_matrix.get_highly_correlated_pairs(threshold=0.5)
-    print(f"\nHighly correlated pairs: {pairs}")
+    logger.info(LogCategory.MARKET, "Highly correlated pairs", data={'pairs': pairs})
     
     # Calculate systemic risk
     systemic_risk = analyzer.calculate_systemic_risk()
-    print(f"\nSystemic risk metrics: {systemic_risk}")
+    logger.info(LogCategory.MARKET, "Systemic risk metrics", data=systemic_risk)
     
     # Test multi-stock environment
     env = MultiStockEnvironment(["AAPL", "MSFT", "GOOGL"], analyzer)
     regime = env.get_market_regime()
-    print(f"\nMarket regime: {regime}")
+    logger.info(LogCategory.MARKET, "Market regime", data={'regime': regime})
     
     # Generate correlated returns
     correlated_returns = env.generate_correlated_returns(10)
-    print(f"\nGenerated correlated returns for {env.assets[0]}: {correlated_returns[env.assets[0]][:5]}")
+    logger.debug(LogCategory.MARKET, "Generated correlated returns", data={'asset': env.assets[0], 'returns': correlated_returns[env.assets[0]][:5]})

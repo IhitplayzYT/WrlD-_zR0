@@ -8,6 +8,9 @@ import hashlib
 import json
 from datetime import datetime
 import re
+from src.utils.logging import get_logger, LogCategory
+
+logger = get_logger()
 
 class DocumentType(Enum):
     PDF = "pdf"
@@ -228,7 +231,7 @@ class DocumentReader:
                 document = self.read_document(file_path, force_reload)
                 documents[document.document_id] = document
             except Exception as e:
-                print(f"Error reading {file_path}: {e}")
+                logger.error(LogCategory.SYSTEM, f"Error reading document", data={'file_path': file_path, 'error': str(e)})
         return documents
     
     def clear_cache(self):
@@ -247,13 +250,9 @@ if __name__ == "__main__":
     
     document = reader.read_document(str(test_file))
     
-    print(f"Document ID: {document.document_id}")
-    print(f"Document Type: {document.document_type.value}")
-    print(f"Content: {document.content}")
-    print(f"Word Count: {document.metadata['key_info']['word_count']}")
-    print(f"Summary: {document.metadata['summary']}")
+    logger.info(LogCategory.SYSTEM, "Document reader test", data={'document_id': document.document_id, 'document_type': document.document_type.value, 'word_count': document.metadata['key_info']['word_count'], 'summary': document.metadata['summary']})
     
     test_file.unlink()
     reader.clear_cache()
     
-    print("Document reader test completed")
+    logger.info(LogCategory.SYSTEM, "Document reader test completed")

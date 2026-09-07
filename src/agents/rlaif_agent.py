@@ -10,6 +10,9 @@ from stable_baselines3.common.callbacks import BaseCallback
 import random
 
 from .base_agent import BaseAgent, AgentTraits, AgentType, AgentState
+from src.utils.logging import get_logger, LogCategory
+
+logger = get_logger()
 
 
 @dataclass
@@ -261,32 +264,69 @@ class RLAIFAgent(BaseAgent):
         """Convert observation dictionary to numpy array for RL model"""
         obs_array = []
         
-        # Price history
+        # Price history: (50, 10) - flatten to 500
         if 'price_history' in observation:
-            obs_array.extend(observation['price_history'])
+            price_hist = observation['price_history']
+            if price_hist.ndim == 2:
+                obs_array.extend(price_hist.flatten())
+            else:
+                # Handle old format for backward compatibility
+                obs_array.extend(list(price_hist) + [0.0] * (500 - len(price_hist)))
         else:
-            obs_array.extend([0.0] * 50)
+            obs_array.extend([0.0] * 500)
         
-        # Order book state
+        # Order book state: (10, 10, 2) - flatten to 200 each
         if 'order_book_bids' in observation:
-            obs_array.extend(observation['order_book_bids'].flatten())
+            bids = observation['order_book_bids']
+            if bids.ndim == 3:
+                obs_array.extend(bids.flatten())
+            elif bids.ndim == 2:
+                # Handle old format for backward compatibility
+                obs_array.extend(bids.flatten())
+                obs_array.extend([0.0] * (200 - bids.size))
+            else:
+                obs_array.extend([0.0] * 200)
         else:
-            obs_array.extend([0.0] * 20)
+            obs_array.extend([0.0] * 200)
         
         if 'order_book_asks' in observation:
-            obs_array.extend(observation['order_book_asks'].flatten())
+            asks = observation['order_book_asks']
+            if asks.ndim == 3:
+                obs_array.extend(asks.flatten())
+            elif asks.ndim == 2:
+                # Handle old format for backward compatibility
+                obs_array.extend(asks.flatten())
+                obs_array.extend([0.0] * (200 - asks.size))
+            else:
+                obs_array.extend([0.0] * 200)
         else:
-            obs_array.extend([0.0] * 20)
+            obs_array.extend([0.0] * 200)
         
         # Agent state
         obs_array.append(observation.get('agent_cash', 1000.0))
-        obs_array.append(observation.get('agent_holdings', 0))
+        
+        # Multi-asset holdings (10 assets)
+        if 'agent_holdings' in observation:
+            obs_array.extend(observation['agent_holdings'])
+        else:
+            obs_array.extend([0.0] * 10)
+        
         obs_array.append(observation.get('agent_total_value', 1000.0))
         
         # Market state
         obs_array.append(observation.get('is_black_box', 0))
-        obs_array.append(observation.get('current_price', 100.0))
-        obs_array.append(observation.get('market_cap', 1000000.0))
+        
+        # Multi-asset prices (10 assets)
+        if 'current_price' in observation:
+            obs_array.extend(observation['current_price'])
+        else:
+            obs_array.extend([100.0] * 10)
+        
+        # Multi-asset market caps (10 assets)
+        if 'market_cap' in observation:
+            obs_array.extend(observation['market_cap'])
+        else:
+            obs_array.extend([1000000.0] * 10)
         
         # Events
         if 'active_events' in observation:
@@ -294,26 +334,39 @@ class RLAIFAgent(BaseAgent):
         else:
             obs_array.extend([0.0] * 10)
         
+        # Available assets one-hot
+        if 'available_assets' in observation:
+            obs_array.extend(observation['available_assets'])
+        else:
+            obs_array.extend([1.0] + [0.0] * 9)
+        
         return np.array(obs_array, dtype=np.float32)
     
     def _format_rl_action(self, rl_action: np.ndarray, observation: Dict) -> np.ndarray:
-        """Format RL action to expected [action_type, quantity, price] format"""
+        """Format RL action to expected [action_type, asset_idx, quantity, price] format"""
         # This is a simplified conversion - in practice, you'd need to handle
         # the specific action space of your RL algorithm
         action_type = int(abs(rl_action[0]) % 5)  # Ensure valid action type
-        quantity = int(abs(rl_action[1]) % 100) + 1  # Ensure positive quantity
+        asset_idx = int(abs(rl_action[1]) % 10)  # Ensure valid asset index (max 10)
+        quantity = int(abs(rl_action[2]) % 100) + 1  # Ensure positive quantity
         
-        current_price = observation.get('current_price', 100.0)
-        price = current_price * (1 + (rl_action[2] * 0.1))  # Price around current
+        # Get current price for the selected asset
+        current_prices = observation.get('current_price', [100.0] * 10)
+        current_price = current_prices[asset_idx] if asset_idx < len(current_prices) else 100.0
+        price = current_price * (1 + (rl_action[3] * 0.1))  # Price around current
         
-        return np.array([action_type, quantity, price], dtype=np.float32)
+        return np.array([action_type, asset_idx, quantity, price], dtype=np.float32)
     
     def _trait_based_action(self, observation: Dict, action_space: Any) -> np.ndarray:
         """Generate action based on traits when RL model is not available"""
         modifiers = self.traits.get_behavior_modifiers()
         
         # Base action on traits and observation
-        current_price = observation.get('current_price', 100.0)
+        available_assets = observation.get('available_assets', [1.0] + [0.0] * 9)
+        asset_idx = int(np.argmax(available_assets))  # Select first available asset
+        
+        current_prices = observation.get('current_price', [100.0] * 10)
+        current_price = current_prices[asset_idx] if asset_idx < len(current_prices) else 100.0
         price_history = observation.get('price_history', [])
         
         # Determine action type based on trend and traits
@@ -342,7 +395,7 @@ class RLAIFAgent(BaseAgent):
         if modifiers['patience_modifier'] > 0.7 and action_type in [1, 2]:
             action_type = action_type + 2  # Convert to limit order
         
-        return np.array([action_type, quantity, price], dtype=np.float32)
+        return np.array([action_type, asset_idx, quantity, price], dtype=np.float32)
     
     def update_state(self, reward: float, done: bool, info: Dict):
         """Update state and training progress"""
@@ -363,7 +416,7 @@ class RLAIFAgent(BaseAgent):
             # Progress if performing well at current level
             if recent_performance > 50:  # Positive performance threshold
                 self.curriculum_level += 1
-                print(f"Agent {self.agent_id} progressed to curriculum level {self.curriculum_level}")
+                logger.info(LogCategory.AGENT, f"Agent {self.agent_id} progressed to curriculum level {self.curriculum_level}", data={'agent_id': self.agent_id, 'curriculum_level': self.curriculum_level})
     
     def train_step(self, env, n_steps: int = 1000):
         """
@@ -376,7 +429,7 @@ class RLAIFAgent(BaseAgent):
             self.rl_model.learn(n_steps)
             self.training_step += n_steps
         except Exception as e:
-            print(f"Training error for agent {self.agent_id}: {e}")
+            logger.error(LogCategory.AGENT, f"Training error for agent {self.agent_id}", data={'agent_id': self.agent_id, 'error': str(e)})
     
     def get_curriculum_config(self) -> Dict[str, float]:
         """Get current curriculum configuration"""
@@ -433,5 +486,4 @@ if __name__ == "__main__":
     
     # Test action decision
     action = agent.decide_action(dummy_obs, None)
-    print(f"Action: {action}")
-    print(f"Agent info: {agent.get_info()}")
+    logger.debug(LogCategory.AGENT, "RLAIF agent test", data={'action': action.tolist(), 'agent_info': agent.get_info()})
