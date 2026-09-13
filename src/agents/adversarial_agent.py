@@ -2,32 +2,19 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Tuple
 import numpy as np
 import random
-
 from .base_agent import BaseAgent, AgentTraits, AgentType, AgentState
 
 
 @dataclass
 class ManipulationStrategy:
-    """
-    Strategy for market manipulation by adversarial agents.
-    """
     strategy_type: str = "pump_and_dump"
     target_price: Optional[float] = None
     duration: int = 10
     intensity: float = 0.5
     cooldown: int = 20
     
-    def execute(
-        self,
-        current_price: float,
-        agent_cash: float,
-        agent_holdings: int,
-        asset_idx: int = 0
-    ) -> Tuple[int, int, int, float]:
-        """
-        Execute manipulation strategy.
-        Returns (action_type, asset_idx, quantity, price)
-        """
+    def execute(self,current_price: float,agent_cash: float,agent_holdings: int,asset_idx: int = 0) -> Tuple[int, int, int, float]:
+        """ Returns (action_type, asset_idx, quantity, price) """
         if self.strategy_type == "pump_and_dump":
             return self._pump_and_dump(current_price, agent_cash, agent_holdings, asset_idx)
         elif self.strategy_type == "bear_raid":
@@ -39,66 +26,36 @@ class ManipulationStrategy:
         else:
             return self._random_manipulation(current_price, agent_cash, agent_holdings, asset_idx)
     
-    def _pump_and_dump(
-        self,
-        current_price: float,
-        agent_cash: float,
-        agent_holdings: int,
-        asset_idx: int = 0
-    ) -> Tuple[int, int, int, float]:
-        """Pump price up then sell"""
-        # Phase 1: Buy aggressively to pump price
+    def _pump_and_dump(self,current_price: float,agent_cash: float,agent_holdings: int,asset_idx: int = 0) -> Tuple[int, int, int, float]:
+        # Pump price(buy high(increase price demands))
         if agent_holdings < 100:
             quantity = min(50, int(agent_cash / current_price))
-            return (1, asset_idx, quantity, current_price * 1.01)  # Market buy
-        # Phase 2: Sell to dump
+            return (1, asset_idx, quantity, current_price * 1.01) 
+        # Dump price(sell lower(To dump excess stock into marker))
         else:
-            return (2, asset_idx, agent_holdings, current_price * 0.99)  # Market sell
+            return (2, asset_idx, agent_holdings, current_price * 0.99) 
     
-    def _bear_raid(
-        self,
-        current_price: float,
-        agent_cash: float,
-        agent_holdings: int,
-        asset_idx: int = 0
-    ) -> Tuple[int, int, int, float]:
-        """Drive price down aggressively"""
-        # Short selling simulation (sell without holding)
+    def _bear_raid(self,current_price: float,agent_cash: float,agent_holdings: int,asset_idx: int = 0) -> Tuple[int, int, int, float]:
+        # Sell lower(Induce panic selling)
         if agent_holdings >= 0:
             quantity = min(30, int(agent_cash / current_price))
-            return (2, asset_idx, quantity, current_price * 0.98)  # Aggressive sell
+            return (2, asset_idx, quantity, current_price * 0.98)  
+        # Buy higher(Lower price due to panic sell from othr agents)
         else:
-            # Cover short position
             return (1, asset_idx, abs(agent_holdings), current_price * 0.99)  # Buy to cover
     
-    def _spoofing(
-        self,
-        current_price: float,
-        agent_cash: float,
-        agent_holdings: int,
-        asset_idx: int = 0
-    ) -> Tuple[int, int, int, float]:
-        """Place fake orders to create illusion of demand/supply"""
-        # Place large limit orders then cancel them
+    def _spoofing(self,current_price: float,agent_cash: float,agent_holdings: int,asset_idx: int = 0) -> Tuple[int, int, int, float]:
+        # Place large limit orders and cancel
         if random.random() < 0.5:
-            # Fake buy order
             quantity = 100
             price = current_price * 1.02
-            return (3, asset_idx, quantity, price)  # Limit buy (will be cancelled)
+            return (3, asset_idx, quantity, price)  # Limit buy
         else:
-            # Fake sell order
             quantity = 100
             price = current_price * 0.98
-            return (4, asset_idx, quantity, price)  # Limit sell (will be cancelled)
+            return (4, asset_idx, quantity, price)  # Limit sell
     
-    def _layering(
-        self,
-        current_price: float,
-        agent_cash: float,
-        agent_holdings: int,
-        asset_idx: int = 0
-    ) -> Tuple[int, int, int, float]:
-        """Place multiple orders at different price levels"""
+    def _layering(self,current_price: float,agent_cash: float,agent_holdings: int,asset_idx: int = 0) -> Tuple[int, int, int, float]:
         # Place orders at multiple levels to create false depth
         level = random.randint(1, 5)
         if random.random() < 0.5:

@@ -10,8 +10,8 @@ def describe_image(image: bytes) -> str:
 You are converting a PDF into Markdown.
 Analyze this image and produce a Markdown deep description.
 Do not try to infer meanings of charts/graph simply give numerically accurate data presened in the diagram
-This will be feed to a RL Finance Model so do not add any hallucinated/fake data or inferences
-
+This will be feed to a RL Finance Model so do not add any hallucinated/fake data or inferences/indicators or suggestions
+Only state the data/graph plot or releant information
 
 Rules:
 - If it is a chart, explain axes, legend, trends and important values.

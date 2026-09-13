@@ -146,19 +146,7 @@ Skip this a single reader model will parse docs and send text to all
 
 ### Phase 3: Advanced Features (Priority: MEDIUM)
 
-#### 3.1 News & Information System
-**Status**: ❌ Not Started
-**Location**: `src/info/news_system.py`
-**Description**: Implement news generation and distribution
-**Tasks**:
-- Create news generator based on market events
-- Implement newspaper broadcasting for top performers
-- Add financial statement distribution
-- Implement news sentiment impact on agents
-- Create summary model for user commentary
-**Dependencies**: 1.3 (Event System), 2.4 (NLP/CV Integration)
-
-#### 3.2 Black Box Prediction System
+#### 3.1 Black Box Prediction System
 **Status**: ❌ Not Started
 **Location**: `src/simulation/black_box.py`
 **Description**: Implement stock price prediction contests
@@ -355,9 +343,7 @@ WrlD-_zR0/
 │   ├── evaluation/
 │   │   └── metrics.py
 │   └── experiments/
-│       └── tracking.py
-├── tests/
-│   ├── unit/
+│       unit/
 │   └── integration/
 ├── docs/
 ├── research_papers/
@@ -529,24 +515,6 @@ Current CLI parameters (from `src/helper.py`):
 **Dependencies**: 1.2 (Market Environment), 1.4 (Time Management)
 **Impact**: More sophisticated prediction contests, better market signal extraction
 
-#### 5. Advanced News & Information System (Priority: MEDIUM)
-**Research Reference**: Information asymmetry and news impact
-**Status**: ✅ Completed (Enhancement to existing 3.1)
-**Location**: `src/info/news_system.py` (enhancement)
-**Description**: Implement comprehensive news system with sentiment analysis
-**Tasks**:
-- Implement news generator based on market events with realistic narratives ✅
-- Add sentiment analysis for news items (positive/negative/neutral) ✅
-- Implement news diffusion model (news spreads gradually through agent population) ✅
-- Add news credibility scoring (some news sources more reliable than others) ✅
-- Implement fake news/rumor detection and impact ✅
-- Add news impact decay over time ✅
-- Implement newspaper broadcasting with top performer rankings ✅
-- Add financial statement distribution with key metrics extraction ✅
-- Implement news summary generation for user commentary ✅
-- Add news-based observation features for agents ✅
-**Dependencies**: 1.3 (Event System)
-**Impact**: More realistic information flow, better agent decision-making
 
 #### 6. Advanced Options Pricing (Priority: MEDIUM)
 **Research Reference**: Options pricing and Greeks calculation

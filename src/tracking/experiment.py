@@ -8,7 +8,6 @@ from src.utils.logging import get_logger, LogCategory
 logger = get_logger()
 
 class ExperimentTracker:
-    
     def __init__(self, log_dir: str = "./logs", experiment_name: Optional[str] = None):
         self.log_dir = Path(log_dir)
         self.experiment_name = experiment_name or f"exp_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -33,12 +32,7 @@ class ExperimentTracker:
             json.dump(summary, f, indent=2, default=str)
     
     def finish(self):
-        final_state = {
-            'experiment_name': self.experiment_name,
-            'total_steps': len(self.metrics_log),
-            'hyperparameters': self.hyperparameters,
-            'completed_at': datetime.now().isoformat()
-        }
+        final_state = {'experiment_name': self.experiment_name,'total_steps': len(self.metrics_log),'hyperparameters': self.hyperparameters,'completed_at': datetime.now().isoformat()}
         with open(self.experiment_dir / "final_state.json", 'w') as f:
             json.dump(final_state, f, indent=2)
         logger.info(LogCategory.SYSTEM, f"Experiment '{self.experiment_name}' completed", data={'experiment_dir': str(self.experiment_dir)})

@@ -594,12 +594,10 @@ class VillainShop(QWidget):
 
 
 class TradingGUI(QMainWindow):
-    """Main GUI application for RLAIF trading simulation"""
-    
     def __init__(self, simulation_state: Dict[str, Any]):
         super().__init__()
         self.simulation_state = simulation_state
-        self.stock_data = simulation_state.get('stock_data', {})
+        self.stock_data = simulation_state.get('current_stock_data', {})
         self.price_history = simulation_state.get('price_history', {})
         self.agents = simulation_state.get('agents', {})
         self.news_events = simulation_state.get('news_events', [])

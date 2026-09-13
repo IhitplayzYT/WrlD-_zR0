@@ -9,7 +9,6 @@ class OrderSide(Enum):
     BUY = "buy"
     SELL = "sell"
 
-
 @dataclass
 class Order:
     id: str
