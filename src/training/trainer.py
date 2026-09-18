@@ -1,3 +1,4 @@
+from src.utils.logging import JSONLogger
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Tuple, Callable
 import numpy as np
@@ -10,10 +11,9 @@ import random
 
 from environment.market_env import MarketEnvironment
 from agents import BaseAgent, RLAIFAgent, AdversarialAgent, AgentType
-from src.utils.logging import get_logger, LogCategory
+from src.utils.logging import LogCategory
 from src.tracking.experiment import ExperimentTracker
 
-logger = get_logger()
 
 
 @dataclass
@@ -38,65 +38,23 @@ class CurriculumManager:
     Gradually increases complexity as agents improve.
     """
     
-    def __init__(self, max_levels: int = 4):
+    def __init__(self, max_levels: int = 4,logger: JSONLogger = JSONLogger()):
         self.max_levels = max_levels
         self.current_level = 0
         self.level_history: List[int] = []
         self.performance_history: List[float] = []
-        
-        # Define curriculum levels
+        self.logger = logger
         self.levels = [
-            CurriculumLevel(
-                level=0,
-                max_complexity=0.3,
-                event_frequency=0.3,
-                market_volatility=0.2,
-                agent_diversity=1,
-                black_box_frequency=50,
-                reward_scaling=1.0,
-                description="Basic market with minimal events"
-            ),
-            CurriculumLevel(
-                level=1,
-                max_complexity=0.5,
-                event_frequency=0.5,
-                market_volatility=0.4,
-                agent_diversity=2,
-                black_box_frequency=30,
-                reward_scaling=1.2,
-                description="Moderate events and volatility"
-            ),
-            CurriculumLevel(
-                level=2,
-                max_complexity=0.7,
-                event_frequency=0.7,
-                market_volatility=0.6,
-                agent_diversity=3,
-                black_box_frequency=20,
-                reward_scaling=1.5,
-                description="Complex events with adversarial agents"
-            ),
-            CurriculumLevel(
-                level=3,
-                max_complexity=1.0,
-                event_frequency=1.0,
-                market_volatility=0.8,
-                agent_diversity=4,
-                black_box_frequency=15,
-                reward_scaling=2.0,
-                description="Full complexity with all features"
-            )
+            CurriculumLevel(level=0,max_complexity=0.3,event_frequency=0.3,market_volatility=0.2,agent_diversity=1,black_box_frequency=50,reward_scaling=1.0,description="Minimal events"),
+            CurriculumLevel(level=1,max_complexity=0.5,event_frequency=0.5,market_volatility=0.4,agent_diversity=2,black_box_frequency=30,reward_scaling=1.2,description="Moderate events and volatility"),
+            CurriculumLevel(level=2,max_complexity=0.7,event_frequency=0.7,market_volatility=0.6,agent_diversity=3,black_box_frequency=20,reward_scaling=1.5,description="Complex events with adversarial agents"),
+            CurriculumLevel(level=3,max_complexity=1.0,event_frequency=1.0,market_volatility=0.8,agent_diversity=4,black_box_frequency=15,reward_scaling=2.0,description="Full complexity with all features")
         ]
     
     def get_current_level(self) -> CurriculumLevel:
-        """Get current curriculum level configuration"""
         return self.levels[self.current_level]
     
     def should_progress(self, performance: float, window: int = 5) -> bool:
-        """
-        Check if agents should progress to next curriculum level.
-        Based on performance over recent episodes.
-        """
         if self.current_level >= self.max_levels - 1:
             return False
         
@@ -104,21 +62,18 @@ class CurriculumManager:
         if len(self.performance_history) > window:
             self.performance_history.pop(0)
         
-        # Need consistent good performance to progress
         if len(self.performance_history) >= window:
             avg_performance = np.mean(self.performance_history)
             threshold = 0.5 + (self.current_level * 0.15)  # Increasing threshold
             return avg_performance > threshold
-        
         return False
     
     def progress(self):
-        """Progress to next curriculum level"""
         if self.current_level < self.max_levels - 1:
             self.current_level += 1
             self.level_history.append(self.current_level)
             self.performance_history.clear()
-            logger.info(LogCategory.TRAINING, f"Progressed to curriculum level {self.current_level}: {self.levels[self.current_level].description}")
+            self.logger.info(LogCategory.TRAINING, f"Progressed to curriculum level {self.current_level}: {self.levels[self.current_level].description}")
     
     def reset(self):
         """Reset curriculum to level 0"""
@@ -129,7 +84,6 @@ class CurriculumManager:
 
 @dataclass
 class TrainingConfig:
-    """Configuration for training pipeline"""
     n_episodes: int = 1000
     episode_length: int = 200
     n_agents: int = 5
@@ -161,34 +115,21 @@ class ExperienceReplay:
         self.buffer = deque(maxlen=capacity)
         self.priorities = deque(maxlen=capacity) if prioritized else None
     
-    def add(
-        self,
-        observation: Dict,
-        action: np.ndarray,
-        reward: float,
-        next_observation: Dict,
-        done: bool,
-        priority: Optional[float] = None
-    ):
+    def add(self,observation: Dict,action: np.ndarray,reward: float,next_observation: Dict,done: bool,priority: Optional[float] = None):
         """Add experience to buffer"""
         self.buffer.append((observation, action, reward, next_observation, done))
-        
         if self.prioritized:
             if priority is None:
-                # Default priority based on reward magnitude
                 priority = abs(reward)
             self.priorities.append(priority)
     
     def sample(self, batch_size: int) -> List[Tuple]:
-        """Sample batch of experiences"""
         if self.prioritized and len(self.buffer) > 0:
-            # Prioritized sampling based on priorities
             priorities = np.array(self.priorities)
             probabilities = priorities / (priorities.sum() + 1e-8)
             indices = np.random.choice(len(self.buffer), batch_size, p=probabilities)
             return [self.buffer[i] for i in indices]
         else:
-            # Uniform sampling
             indices = np.random.choice(len(self.buffer), min(batch_size, len(self.buffer)))
             return [self.buffer[i] for i in indices]
     
@@ -197,90 +138,50 @@ class ExperienceReplay:
 
 
 class TrainingPipeline:
-    """
-    Advanced training pipeline with curriculum learning and multi-agent coordination.
-    """
-    
-    def __init__(self, config: TrainingConfig):
+    def __init__(self, config: TrainingConfig,logger: JSONLogger = JSONLogger()):
         self.config = config
-        
-        # Create directories
+        self.logger = logger
         Path(config.checkpoint_dir).mkdir(parents=True, exist_ok=True)
         Path(config.log_dir).mkdir(parents=True, exist_ok=True)
         
-        # Curriculum manager
         self.curriculum_manager = CurriculumManager() if config.use_curriculum else None
+        self.replay_buffer = ExperienceReplay(config.replay_buffer_size,config.prioritized_replay) if config.use_experience_replay else None
         
-        # Experience replay
-        self.replay_buffer = ExperienceReplay(
-            config.replay_buffer_size,
-            config.prioritized_replay
-        ) if config.use_experience_replay else None
-        
-        # Training state
         self.current_episode = 0
         self.episode_rewards: List[float] = []
         self.episode_lengths: List[int] = []
         self.agent_performances: Dict[str, List[float]] = {}
-        
-        # Environment (will be created per curriculum level)
         self.env = None
-        
-        # Logging
         self.training_log = []
         self.start_time = datetime.now()
-        
-        # Experiment tracking
-        self.experiment_tracker = ExperimentTracker(
-            log_dir=config.log_dir,
-            experiment_name=f"training_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        )
+
+        self.experiment_tracker = ExperimentTracker(log_dir=config.log_dir,experiment_name=f"training_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
         self.experiment_tracker.log_hyperparameters(config.__dict__)
     
     def create_environment(self, curriculum_level: Optional[CurriculumLevel] = None) -> MarketEnvironment:
-        """Create environment with curriculum level configuration"""
         if curriculum_level is None and self.curriculum_manager:
             curriculum_level = self.curriculum_manager.get_current_level()
-            
         price_data = self._generate_price_data(curriculum_level)
-        
-        # Determine agent types based on diversity
         if curriculum_level:
             n_types = curriculum_level.agent_diversity
             agent_types = ["rlaif"] * (self.config.n_agents - 1)
             if n_types >= 2 and self.config.adversarial_training:
                 agent_types[-1] = "adversarial"
             if n_types >= 3:
-                agent_types[-2] = "rlaif"  # Different RLAIF config
+                agent_types[-2] = "rlaif" 
         else:
             agent_types = ["rlaif"] * self.config.n_agents
         
-        # Create environment
-        env = MarketEnvironment(
-            n_agents=self.config.n_agents,
-            max_bad_agents=self.config.max_bad_agents,
-            initial_cash=self.config.initial_cash,
-            episode_length=self.config.episode_length,
-            price_data=price_data,
-            black_box_frequency=curriculum_level.black_box_frequency if curriculum_level else 20,
-            black_box_duration=5,
-            use_enhanced_observation=True,
-            agent_types=agent_types
-        )
-        
-        return env
+        return MarketEnvironment(n_agents=self.config.n_agents,max_bad_agents=self.config.max_bad_agents,initial_cash=self.config.initial_cash,episode_length=self.config.episode_length,price_data=price_data,black_box_frequency=curriculum_level.black_box_frequency if curriculum_level else 20,black_box_duration=5,use_enhanced_observation=True,agent_types=agent_types)
     
     def _generate_price_data(self, curriculum_level: Optional[CurriculumLevel]) -> List[float]:
-        """Generate price data with appropriate volatility"""
         volatility = 0.01 if curriculum_level is None else curriculum_level.market_volatility * 0.03
         n_steps = self.config.episode_length * 10
-        
         prices = [100.0]
         for _ in range(n_steps - 1):
             change = np.random.normal(0, volatility)
             new_price = prices[-1] * (1 + change)
             prices.append(max(new_price, 1.0))
-        
         return prices
     
     def train_episode(self, env: MarketEnvironment) -> Dict[str, float]:
@@ -362,7 +263,7 @@ class TrainingPipeline:
         return {'mean_reward': np.mean(eval_rewards),'std_reward': np.std(eval_rewards),'mean_length': np.mean(eval_lengths),'max_reward': np.max(eval_rewards),'min_reward': np.min(eval_rewards)}
     
     def train(self):
-        logger.info(LogCategory.TRAINING, f"Starting training for {self.config.n_episodes} episodes", data={'n_episodes': self.config.n_episodes, 'curriculum_learning': self.config.use_curriculum, 'experience_replay': self.config.use_experience_replay})
+        self.logger.info(LogCategory.TRAINING, f"Starting training for {self.config.n_episodes} episodes", data={'n_episodes': self.config.n_episodes, 'curriculum_learning': self.config.use_curriculum, 'experience_replay': self.config.use_experience_replay})
         self.env = self.create_environment()
         
         for episode in range(self.config.n_episodes):
@@ -394,7 +295,7 @@ class TrainingPipeline:
         # Final save
         self._save_checkpoint(self.config.n_episodes)
         self._save_training_log()
-        logger.info(LogCategory.TRAINING, "Training completed")
+        self.logger.info(LogCategory.TRAINING, "Training completed")
         self._print_summary()
     
     def _log_progress(self, episode: int, metrics: Dict[str, float]):
@@ -402,11 +303,11 @@ class TrainingPipeline:
         avg_length = np.mean(self.episode_lengths[-self.config.log_frequency:])
         log_entry = {'episode': episode,'episode_reward': metrics['episode_reward'],'episode_length': metrics['episode_length'],'average_reward': avg_reward,'average_length': avg_length,'curriculum_level': self.curriculum_manager.current_level if self.curriculum_manager else 0,'timestamp': datetime.now().isoformat()}
         self.training_log.append(log_entry)
-        logger.info(LogCategory.TRAINING, f"Episode {episode} progress", data={'episode': episode, 'reward': metrics['episode_reward'], 'avg_reward': avg_reward, 'length': metrics['episode_length'], 'curriculum_level': log_entry['curriculum_level']})
+        self.logger.info(LogCategory.TRAINING, f"Episode {episode} progress", data={'episode': episode, 'reward': metrics['episode_reward'], 'avg_reward': avg_reward, 'length': metrics['episode_length'], 'curriculum_level': log_entry['curriculum_level']})
         self.experiment_tracker.log_metrics({'episode_reward': metrics['episode_reward'],'average_reward': avg_reward,'episode_length': metrics['episode_length'],'curriculum_level': log_entry['curriculum_level']}, step=episode)
     
     def _log_evaluation(self, episode: int, metrics: Dict[str, float]):
-        logger.info(LogCategory.EVALUATION, f"Evaluation at episode {episode}", data={'episode': episode, 'mean_reward': metrics['mean_reward'], 'std_reward': metrics['std_reward'], 'max_reward': metrics['max_reward']})
+        self.logger.info(LogCategory.EVALUATION, f"Evaluation at episode {episode}", data={'episode': episode, 'mean_reward': metrics['mean_reward'], 'std_reward': metrics['std_reward'], 'max_reward': metrics['max_reward']})
         self.experiment_tracker.log_metrics({f'eval_mean_reward': metrics['mean_reward'],f'eval_std_reward': metrics['std_reward'],f'eval_max_reward': metrics['max_reward'],f'eval_min_reward': metrics['min_reward']}, step=episode)
     
     def _save_checkpoint(self, episode: int):
@@ -422,16 +323,16 @@ class TrainingPipeline:
             checkpoint['agent_models'] = agent_models
         
         torch.save(checkpoint, checkpoint_path)
-        logger.info(LogCategory.TRAINING, f"Saved checkpoint", data={'episode': episode, 'checkpoint_path': str(checkpoint_path)})
+        self.logger.info(LogCategory.TRAINING, f"Saved checkpoint", data={'episode': episode, 'checkpoint_path': str(checkpoint_path)})
     
     def _save_training_log(self):
         log_path = Path(self.config.log_dir) / "training_log.json"
         with open(log_path, 'w') as f:
             json.dump(self.training_log, f, indent=2)
-        logger.info(LogCategory.TRAINING, f"Saved training log", data={'log_path': str(log_path)})
+        self.logger.info(LogCategory.TRAINING, f"Saved training log", data={'log_path': str(log_path)})
     
     def _print_summary(self):
         summary_data = {'total_episodes': self.current_episode + 1,'average_reward': float(np.mean(self.episode_rewards)),'max_reward': float(np.max(self.episode_rewards)),'min_reward': float(np.min(self.episode_rewards)),'average_episode_length': float(np.mean(self.episode_lengths)),'final_curriculum_level': self.curriculum_manager.current_level if self.curriculum_manager else 0,'level_progression': self.curriculum_manager.level_history if self.curriculum_manager else [],'training_duration': str(datetime.now() - self.start_time)}
-        logger.info(LogCategory.TRAINING, "Training Summary", data=summary_data)
+        self.logger.info(LogCategory.TRAINING, "Training Summary", data=summary_data)
         self.experiment_tracker.log_summary(summary_data)
         self.experiment_tracker.finish()

@@ -13,6 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.market import OrderBook, OrderSide
 from src.market.multi_asset_order_book import MultiAssetOrderBook
+from src.market import MultiStockEnvironment
 from src.events import EventManager, MarketEvent, EventType
 from src.agents import BaseAgent, RLAIFAgent, AdversarialAgent, AgentType
 from src.environment.observation_space import EnhancedObservationSpace
@@ -54,7 +55,8 @@ class MarketEnvironment(AECEnv):
             self.price_data = price_data
         
         self.available_assets = list(self.price_data.keys())
-        self.order_book = MultiAssetOrderBook(assets=self.available_assets, tick_size=0.01)
+        self.order_book = MultiAssetOrderBook(assets=self.available_assets)
+        self.multi_stock_env = MultiStockEnvironment(assets=self.available_assets, stock_data=self.price_data)
         self.event_manager = event_manager if event_manager else EventManager()
         
         # Enhanced observation space
@@ -150,6 +152,7 @@ class MarketEnvironment(AECEnv):
             np.random.seed(seed)
         
         self.order_book.reset()
+        self.multi_stock_env.reset()
         self._initialize_agents()
         self.current_step = 0
         self.current_day = 0
@@ -296,6 +299,9 @@ class MarketEnvironment(AECEnv):
                 asset_prices = self.price_data.get(asset, [])
                 price_idx = min(self.current_step, len(asset_prices) - 1)
                 self.current_prices[asset] = asset_prices[price_idx] if asset_prices else 100.0
+        
+        # Update multi_stock_env with current prices
+        self.multi_stock_env.update_prices(self.current_prices)
         
         for asset in self.available_assets:
             self.price_history[asset].append(self.current_prices[asset])
