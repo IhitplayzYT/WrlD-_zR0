@@ -2,12 +2,8 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any, Tuple
 import numpy as np
 from enum import Enum
-import random
 from datetime import datetime
-from src.utils.logging import get_logger, LogCategory
-
-logger = get_logger()
-
+from src.utils.logging import LogCategory
 
 class PredictionType(Enum):
     """Types of predictions agents can make"""
@@ -601,60 +597,3 @@ class BlackBoxPredictionSystem:
             'leaderboard_size': len(self.leaderboard),
             'market_consensus': self.get_market_consensus()
         }
-
-
-if __name__ == "__main__":
-    # Test the black box prediction system
-    system = BlackBoxPredictionSystem(
-        duration=5,
-        frequency=20,
-        enable_prediction_market=True
-    )
-    
-    # Simulate triggering
-    system.step_counter = 19
-    should_trigger = system.should_trigger()
-    logger.info(LogCategory.EVENT, f"Black box trigger test", data={'should_trigger': should_trigger, 'state': system.get_state()})
-    
-    # Create test predictions
-    pred1 = Prediction(
-        agent_id="agent_1",
-        prediction_type=PredictionType.PRICE_LEVEL,
-        predicted_values=[105.0, 106.0, 107.0, 108.0, 109.0],
-        confidence_interval=(104.0, 110.0),
-        confidence_level=0.8,
-        explanation="Based on upward trend analysis"
-    )
-    
-    pred2 = Prediction(
-        agent_id="agent_2",
-        prediction_type=PredictionType.PRICE_LEVEL,
-        predicted_values=[104.0, 103.0, 102.0, 101.0, 100.0],
-        confidence_interval=(99.0, 105.0),
-        confidence_level=0.7,
-        explanation="Expecting mean reversion"
-    )
-    
-    # Submit predictions
-    system.submit_prediction("agent_1", pred1)
-    system.submit_prediction("agent_2", pred2)
-    
-    logger.info(LogCategory.EVENT, f"Submitted predictions", data={'count': len(system.current_predictions)})
-    
-    # Get ensemble prediction
-    ensemble = system.get_ensemble_prediction()
-    logger.debug(LogCategory.EVENT, f"Ensemble prediction", data={'ensemble': ensemble})
-    
-    # Get market consensus
-    consensus = system.get_market_consensus()
-    logger.debug(LogCategory.EVENT, f"Market consensus", data={'consensus': consensus})
-    
-    # Evaluate predictions
-    actual_values = [105.5, 106.2, 106.8, 107.5, 108.0]
-    results = system.evaluate_predictions(actual_values)
-    
-    logger.info(LogCategory.EVALUATION, f"Evaluation results", data={'results': [{'agent_id': r.prediction.agent_id, 'accuracy': r.accuracy_score, 'multiplier': r.reward_multiplier, 'villain_points': r.villain_points_earned, 'is_king': r.is_king} for r in results]})
-    
-    # Get leaderboard
-    leaderboard = system.get_leaderboard()
-    logger.info(LogCategory.EVALUATION, f"Leaderboard", data={'leaderboard': [{'agent_id': e.agent_id, 'reputation': e.reputation_score, 'accuracy': e.accuracy} for e in leaderboard]})

@@ -5,10 +5,7 @@ import torch
 import torch.nn as nn
 from enum import Enum
 from collections import deque
-from src.utils.logging import get_logger, LogCategory
-
-logger = get_logger()
-
+from src.utils.logging import LogCategory
 
 class WorldModelType(Enum):
     """Types of world models"""
@@ -625,38 +622,3 @@ class WorldModel:
         
         if self.explanatory_model is not None and checkpoint['explanatory_model'] is not None:
             self.explanatory_model.causal_graph = checkpoint['explanatory_model']
-
-
-if __name__ == "__main__":
-    # Test world model
-    state_dim = 10
-    action_dim = 3
-    
-    world_model = WorldModel(
-        state_dim=state_dim,
-        action_dim=action_dim,
-        max_delay=5,
-        use_dynamics=True,
-        use_reward_model=True,
-        use_delay_aware=True,
-        use_explanatory=True
-    )
-    
-    # Test prediction
-    state = np.random.randn(state_dim)
-    action = np.random.randn(action_dim)
-    
-    next_state, uncertainty = world_model.predict_next_state(state, action)
-    logger.debug(LogCategory.SYSTEM, "World model prediction test", data={'next_state_shape': next_state.shape, 'uncertainty': uncertainty})
-    
-    reward = world_model.predict_reward(state, action)
-    logger.debug(LogCategory.SYSTEM, "Predicted reward", data={'reward': reward})
-    
-    # Test trajectory imagination
-    action_sequence = [np.random.randn(action_dim) for _ in range(5)]
-    states, rewards = world_model.imagine_trajectory(state, action_sequence)
-    logger.debug(LogCategory.SYSTEM, "Imagined trajectory", data={'trajectory_length': len(states), 'predicted_rewards': rewards})
-    
-    # Test explanation
-    explanation = world_model.get_explanation(action_sequence, rewards)
-    logger.info(LogCategory.SYSTEM, "World model explanation", data=explanation)

@@ -1,15 +1,14 @@
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import src.consts as consts
+
+DBG_STR = ""
  
 class p_Event:
     def __init__(self):
         self.p_good = 0.8
         self.p_bad = 1 - self.p_good
         self.p_criticality = 0.01
-        
-
 
 class CLI:
     """ The Struct holding configuration for our Simulation """
@@ -21,7 +20,7 @@ class CLI:
         self.mx_episodes = 100
         self.episode_day_len = 200
         self.each_day_movements = 10 # Everyday stock will move 10 times (i.e simulate stock movement occur every second)
-        self.initial_amount = 1000
+        self.initial_amount = 10000.0
         self.stock_data = {} # Optional csv to emulate stock price movement data
         self.event_probs = p_Event()
         self.news = False 
@@ -82,4 +81,4 @@ class CLI:
 
 
 def Help():
-    print(consts.DBG_STR)
+    print(DBG_STR)

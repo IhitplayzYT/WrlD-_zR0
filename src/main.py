@@ -2,7 +2,6 @@ from torch.backends.opt_einsum import strategy
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 import random
 from datetime import datetime
 import src.helper as helper
@@ -27,7 +26,7 @@ if __name__ == "__main__":
     if clargs.dbg:
         logger.info(LogCategory.SYSTEM, f"CLI args: {clargs}")
     
-    tracker = ExperimentTracker(log_dir="./logs/experiments", experiment_name=f"sim_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+    tracker = ExperimentTracker("./logs/experiments",f"sim_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
     tracker.log_hyperparameters({'n_agents': clargs.n_agnts,'initial_cash': clargs.initial_amount,'episode_length': clargs.episode_day_len * clargs.each_day_movements,'black_box_duration': clargs.black_bx_dur,'black_box_frequency': clargs.black_bx_freq,'max_bad_agents': clargs.mx_bad})
 
     simulation_metrics = {'n_agents': clargs.n_agnts,'initial_cash': clargs.initial_amount,'episode_length': clargs.episode_day_len * clargs.each_day_movements,'black_box_duration': clargs.black_bx_dur,'black_box_frequency': clargs.black_bx_freq,'max_bad_agents': clargs.mx_bad}

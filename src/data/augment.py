@@ -7,7 +7,7 @@ class Augmenter:
     """Augments stock price data for RLAIF simulation episodes"""
     
     def __init__(self, df: pl.DataFrame, n_episodes: int, episode_day_len: int, each_day_movements: int):
-        """ Note : df: DataFrame from ingestors containing stock data with [VIMP] 'price' column """
+        """ Note : df: DataFrame from ingestors containing stock data with compulsory 'price' column """
         self.df = df
         self.n_episodes = n_episodes
         self.episode_day_len = episode_day_len
@@ -39,7 +39,7 @@ class Augmenter:
             ret = data_list[::compr_rate][:self.min_data_len]
             return pl.Series(ret)
         
-        # Case 2: Too little data - extrapolate via random self-sampling
+        # Too little data, extrapolate via rand sampling
         while len(data_list) < self.min_data_len:
             # Pick random locality length (between 5 and 20% of current data, varies each iteration)
             mn_perc,mx_perc = random.uniform(0.05, 0.10),random.uniform(0.15, 0.30)
@@ -55,20 +55,6 @@ class Augmenter:
         
         return pl.Series(data_list)
     
-    def random_day_swap(self, data: List[float]) -> List[float]:
-        """ Apply random day swap with random multiplier to each value """
-        swapped = data.copy()
-        n = len(swapped)
-        num_swaps = random.randint(1, n // 4)  # 25% of elems are gonna be swapped
-        for _ in range(num_swaps):
-            i = random.randint(0, n - 1)
-            j = random.randint(0, n - 1)
-            swapped[i], swapped[j] = swapped[j], swapped[i]
-        for i in range(n):
-            if random.random() < 0.1:  # 10% chance for multiplier
-                multiplier = random.uniform(0.8, 1.2)
-                swapped[i] *= multiplier
-        return swapped
     
     def apply_volatility_transform(self, data: List[float]) -> List[float]:
         """
@@ -117,6 +103,23 @@ class Augmenter:
             current_data = episode_data
         return episodes
 
+    # Random day swap with volatility multiplier
+    def random_day_swap(self, data: List[float]) -> List[float]:
+        """ Apply random day swap with random multiplier to each value """
+        swapped = data.copy()
+        n = len(swapped)
+        num_swaps = random.randint(1, n // 4)  # 25% of elems are gonna be swapped
+        for _ in range(num_swaps):
+            i = random.randint(0, n - 1)
+            j = random.randint(0, n - 1)
+            swapped[i], swapped[j] = swapped[j], swapped[i]
+        for i in range(n):
+            if random.random() < 0.1:  # 10% chance for multiplier
+                multiplier = random.uniform(0.8, 1.2)
+                swapped[i] *= multiplier
+        return swapped
+
+    # Just random epsiode swap
     def random_episode_swap(self,df: List[List[float]]) -> List[List[float]]:
         l = len(df)
         n_swap = random.randint(1,l//4)
@@ -126,9 +129,8 @@ class Augmenter:
             j = random.randint(0,l)
             ret[i],ret[j] = ret[j],ret[i]
         return ret
-
         
     def augment_stock_data(self,df: pl.DataFrame, n_episodes: int, episode_day_len: int, each_day_movements: int) -> List[List[float]]:
-        """ Main function to augment stock data """
+        """ Main API to augment stock data """
         augmenter = Augmenter(df, n_episodes, episode_day_len, each_day_movements)
         return self.random_episode_swap(augmenter.generate_all_episodes())

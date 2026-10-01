@@ -17,7 +17,6 @@ class LogLevel(Enum):
     ERROR = "error"
     CRITICAL = "critical"
 
-
 class LogCategory(Enum):
     MARKET = "market"
     AGENT = "agent"
@@ -27,29 +26,28 @@ class LogCategory(Enum):
     SYSTEM = "system"
     PERFORMANCE = "performance"
 
-
 @dataclass
 class LogEntry:
     timestamp: datetime
-    level: LogLevel
-    category: LogCategory
-    message: str
+    lvl: LogLevel
+    categ: LogCategory
+    desc: str
     data: Dict[str, Any] = field(default_factory=dict)
-    source: str = ""
+    src: str = ""
     agent_id: Optional[str] = None
     episode: Optional[int] = None
     step: Optional[int] = None
     
     def to_dict(self) -> Dict[str, Any]:
-        return {'timestamp': self.timestamp.isoformat(),'level': self.level.value,'category': self.category.value,'message': self.message,'data': self.data,'source': self.source,'agent_id': self.agent_id,'episode': self.episode,'step': self.step}
+        return {'timestamp': self.timestamp.isoformat(),'level': self.lvl.value,'category': self.categ.value,'message': self.desc,'data': self.data,'source': self.src,'agent_id': self.agent_id,'episode': self.episode,'step': self.step}
 
     def from_dict(self,dict: Dict[str,Any]):
         self.timestamp = dict["timestamp"]
-        self.level = dict["level"]
-        self.category = dict["category"]
-        self.message = dict["message"]
+        self.lvl = dict["level"]
+        self.categ = dict["category"]
+        self.desc = dict["message"]
         self.data = dict["data"]
-        self.source = dict["source"]
+        self.src = dict["source"]
         self.agent_id = dict["agent_id"]
         self.episode = dict["episode"]
         self.step = dict["step"]
@@ -66,26 +64,21 @@ class LogFilter:
     def matches(self, entry: LogEntry) -> bool:
         if self.level_filter and entry.level != self.level_filter:
             return False
-        
         if self.category_filter and entry.category != self.category_filter:
             return False
-        
         if self.agent_filter and entry.agent_id != self.agent_filter:
             return False
-        
         if self.time_range:
-            start, end = self.time_range
-            if (start > end) or not (start <= entry.timestamp <= end):
+            st, ed = self.time_range
+            if (st > ed) or not (st <= entry.timestamp <= ed):
                 return False
-        
         if self.message_pattern and not re.search(self.message_pattern, entry.message, re.IGNORECASE):
             return False
-        
         return True
 
 
 class LogRotator:
-    
+
     def __init__(self, max_file_size: int = 10 * 1024 * 1024, max_files: int = 10):
         self.max_file_size = max_file_size 
         self.max_files = max_files
@@ -114,13 +107,12 @@ class LogRotator:
             compressed_files[0].unlink()
             compressed_files.pop(0)
 
-
 class JSONLogger:
-
     def __init__(self,log_dir: str = "./logs",log_file: str = "simulation.jsonl",enable_rotation: bool = True,enable_compression: bool = True,buffer_size: int = 100):
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.log_file = self.log_dir / log_file
+
         if not self.log_file.exists():
             self.log_file.write_text("")
 
@@ -130,7 +122,6 @@ class JSONLogger:
         self.buffer: deque = deque(maxlen=buffer_size)
         self.buffer_size = buffer_size
         self.lock = threading.Lock()
-
     
     def log(self,level: LogLevel,category: LogCategory,message: str,data: Optional[Dict[str, Any]] = None,source: str = "",agent_id: Optional[str] = None,episode: Optional[int] = None,step: Optional[int] = None):
         ent = LogEntry(datetime.now(),level,category,message,data if data else {},source,agent_id,episode,step)
@@ -171,14 +162,13 @@ class JSONLogger:
                 for line in f:
                     try:
                         data = json.loads(line)
-                        entry = LogEntry(timestamp=datetime.fromisoformat(data['timestamp']),level=LogLevel(data['level']),category=LogCategory(data['category']),message=data['message'],data=data.get('data', {}),source=data.get('source', ''),agent_id=data.get('agent_id'),episode=data.get('episode'),step=data.get('step'))
+                        entry = LogEntry(datetime.fromisoformat(data['timestamp']),LogLevel(data['level']),LogCategory(data['category']),data['message'],data.get('data', {}),data.get('source', ''),data.get('agent_id'),data.get('episode'),data.get('step'))
                         if log_filter is None or log_filter.matches(entry):
                             entries.append(entry)
                             if len(entries) >= limit:
                                 break
                     except (json.JSONDecodeError, KeyError):
                         continue
-        
         if self.enable_compression and len(entries) < limit:
             for compressed_file in sorted(self.log_dir.glob("*.json.gz"), reverse=True):
                 if len(entries) >= limit:
@@ -188,7 +178,7 @@ class JSONLogger:
                         for line in f:
                             try:
                                 data = json.loads(line)
-                                entry = LogEntry(timestamp=datetime.fromisoformat(data['timestamp']),level=LogLevel(data['level']),category=LogCategory(data['category']),message=data['message'],data=data.get('data', {}),source=data.get('source', ''),agent_id=data.get('agent_id'),episode=data.get('episode'),step=data.get('step'))
+                                entry = LogEntry(datetime.fromisoformat(data['timestamp']),LogLevel(data['level']),LogCategory(data['category']),data['message'],data.get('data', {}),data.get('source', ''),data.get('agent_id'),data.get('episode'),data.get('step'))
                                 if log_filter is None or log_filter.matches(entry):
                                     entries.append(entry)
                                     if len(entries) >= limit:
@@ -203,9 +193,7 @@ class JSONLogger:
         entries = self.query(limit=10000) 
         if not entries:
             return {'total_entries': 0}
-        n_levels = {}
-        n_cats = {}
-        n_agents = {}
+        n_levels = n_cats = n_agents = {}
         for entry in entries:
             n_levels[entry.level.value] = n_levels.get(entry.level.value, 0) + 1
             n_cats[entry.category.value] = n_cats.get(entry.category.value, 0) + 1
