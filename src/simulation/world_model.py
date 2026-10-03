@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass 
 from typing import Dict, List, Optional, Any, Tuple
 import numpy as np
 import torch
@@ -9,8 +9,8 @@ from src.utils.logging import LogCategory
 
 class WorldModelType(Enum):
     """Types of world models"""
-    DYNAMICS = "dynamics"  # Predicts next state
-    REWARD = "reward"  # Predicts immediate reward
+    DYNAMICS = "dynamics"        # Predicts next state
+    REWARD = "reward"            # Predicts immediate reward
     EXPLANATORY = "explanatory"  # Explains causal relationships
     DELAY_AWARE = "delay_aware"  # Handles delayed observations
 

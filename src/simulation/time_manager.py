@@ -3,15 +3,15 @@ from typing import Dict, List, Optional, Tuple,Any
 from dataclasses import dataclass, field
 from enum import Enum
 import random
-from datetime import datetime, timedelta
+from datetime import datetime
 import random
+from src.utils.logging import JSONLogger, get_logger, LogCategory
 
 class MarketSession(Enum):
     PRE_MARKET = "pre_market"
     REGULAR = "regular"
     AFTER_HOURS = "after_hours"
     CLOSED = "closed"
-
 
 class TimeZone(Enum):
     EST = "est" 
@@ -20,250 +20,212 @@ class TimeZone(Enum):
     JST = "jst" 
     CET = "cet" 
 
-
 @dataclass
 class AgentTimeRestriction:
     agent_id: str
-    allowed_movements_start: int  # Starting movement number (0-indexed)
-    allowed_movements_end: int    # Ending movement number (exclusive)
+    allow_st: int  # (0-indexed)
+    allow_ed: int  # (exclusive)
     is_blocked: bool = False
-    block_remaining: int = 0
-    block_reason: Optional[str] = None
-    performance_score: float = 0.5
-    adjustment_history: List[Tuple[int, int]] = field(default_factory=list)  # History of window adjustments
+    rem_block: int = 0
+    perf_score: float = 0.5
+    hist: List[Tuple[int, int]] = field(default_factory=list)
 
-
-from src.utils.logging import JSONLogger, get_logger, LogCategory
 
 class TimeManager:
     """
-    - Timestamp-based agent access restrictions
-    - Black box periods
-    - Rare agent blocking/killing events
+    - Time based access
+    - bbox periods
+    - Agent blocka and killing
     """
     
     def __init__(self, day_duration_seconds: float = 90.0, movements_per_day: int = 10, black_box_duration: int = 5, black_box_frequency: int = 20, max_agents: int = 20, enable_dynamic_adjustment: bool = True, enable_market_sessions: bool = True, timezone: TimeZone = TimeZone.EST, logger: Optional[JSONLogger] = None):
         self.logger = logger or get_logger()
-        self.day_duration_seconds = day_duration_seconds
-        self.movements_per_day = movements_per_day
-        self.black_box_duration = black_box_duration
-        self.black_box_frequency = black_box_frequency
-        self.max_agents = max_agents
-        self.enable_dynamic_adjustment = enable_dynamic_adjustment
-        self.enable_market_sessions = enable_market_sessions
+        self.day_dur = day_duration_seconds
+        self.mov_per_day = movements_per_day
+        self.bbox_dur = black_box_duration
+        self.bbox_freq = black_box_frequency
+        self.mx_agents = max_agents
+        self.dynamic_adj = enable_dynamic_adjustment
+        self.market_sess = enable_market_sessions
         self.timezone = timezone
-        
-        self.current_day = 0
-        self.current_movement = 0
-        self.total_steps = 0
-        self.simulation_start_time = None
-        self.day_start_time = None
-        
-        self.is_black_box = False
-        self.black_box_counter = 0
-        self.black_box_remaining = 0
-        
-        self.agent_restrictions: Dict[str, AgentTimeRestriction] = {}
-        self.current_session = MarketSession.CLOSED
-        self.session_movements = {MarketSession.PRE_MARKET: (0, 2), MarketSession.REGULAR: (2, 8),    MarketSession.AFTER_HOURS: (8, 10)}
-        
-        self.block_probability = 0.001 
-        self.kill_probability = 0.0001 
-        
-        self.agent_performance_history: Dict[str, List[float]] = {}
-        self.adjustment_frequency = 50  # Adjust windows every 50 steps
+        self.curr_day = 0
+        self.curr_movement = 0
+        self.tot_steps = 0
+        self.sim_st_time = None
+        self.day_st_time = None
+        self.is_bbox = False
+        self.bbox_counter = 0
+        self.bbox_t_rem = 0
+        self.restrictions: Dict[str, AgentTimeRestriction] = {}
+        self.curr_sess = MarketSession.CLOSED
+        self.sess_movements = {MarketSession.PRE_MARKET: (0, 2), MarketSession.REGULAR: (2, 8),    MarketSession.AFTER_HOURS: (8, 10)}
+        self.p_block = 0.001 
+        self.p_kill = 0.0001 
+        self.history: Dict[str, List[float]] = {}
+        self.adj_freq = 50  # Adjust windows every 50 steps
     
     def start_simulation(self):
-        self.simulation_start_time = time.time()
-        self.day_start_time = time.time()
-    
+        self.sim_st_time = self.day_st_time = time.time()
+
     def advance_movement(self) -> bool:
-        """ Returns True if day has ended, False otherwise """
-        self.current_movement += 1
-        self.total_steps += 1
+        self.curr_movement += 1
+        self.tot_steps += 1
         
-        if self.enable_market_sessions:
-            self.current_session = self._get_current_session()
+        if self.market_sess:
+            self.curr_sess = self._get_current_session()
         
-        if self.enable_dynamic_adjustment and self.total_steps % self.adjustment_frequency == 0:
+        if self.dynamic_adj and self.tot_steps % self.adj_freq == 0:
             self._adjust_time_windows()
         
-        if self.current_movement >= self.movements_per_day:
-            self.current_movement = 0
-            self.current_day += 1
-            self.day_start_time = time.time()
-            self.current_session = MarketSession.CLOSED
+        if self.curr_movement >= self.mov_per_day:
+            self.curr_movement = 0
+            self.curr_day+= 1
+            self.day_st_time = time.time()
+            self.curr_sess = MarketSession.CLOSED
             return True
-        
         return False
     
     def _get_current_session(self) -> MarketSession:
-        for session, (start, end) in self.session_movements.items():
-            if start <= self.current_movement < end:
+        for session, (start, end) in self.sess_movements.items():
+            if start <= self.curr_movement < end:
                 return session
         return MarketSession.CLOSED
     
     def get_current_session(self) -> MarketSession:
-        return self.current_session
+        return self.curr_sess
     
     def is_market_open(self) -> bool:
-        return self.current_session in [MarketSession.PRE_MARKET, MarketSession.REGULAR, MarketSession.AFTER_HOURS]
+        return self.curr_sess in [MarketSession.PRE_MARKET, MarketSession.REGULAR, MarketSession.AFTER_HOURS]
     
     def get_day_progress(self) -> float:
-        return self.current_movement / self.movements_per_day
+        return self.curr_movement / self.mov_per_day
     
     def get_time_until_day_end(self) -> float:
-        return max(0.0,  self.day_duration_seconds - (time.time() - self.day_start_time))
+        return max(0.0,  self.day_dur - (time.time() - self.day_st_time))
     
     def should_trigger_black_box(self) -> bool:
-        self.black_box_counter += 1
-        if not self.is_black_box and self.black_box_counter >= self.black_box_frequency:
-            self.is_black_box = True
-            self.black_box_remaining = self.black_box_duration
-            self.black_box_counter = 0
+        self.bbox_counter += 1
+        if not self.is_bbox and self.bbox_counter >= self.bbox_freq:
+            self.is_bbox = True
+            self.bbox_t_rem = self.bbox_dur
+            self.bbox_counter = 0
             return True
         return False
     
     def update_black_box(self):
-        if self.is_black_box:
-            self.black_box_remaining -= 1
-            if self.black_box_remaining <= 0:
-                self.is_black_box = False
+        if self.is_bbox:
+            self.bbox_t_rem -= 1
+            if self.bbox_t_rem <= 0:
+                self.is_bbox = False
     
     def add_agent_restriction(self,agent_id: str,start_movement: int,end_movement: int):
-        """
-        Add time-based access restriction for an agent.
-        Agent can only trade during movement range [start_movement, end_movement).
-        """
-        self.agent_restrictions[agent_id] = AgentTimeRestriction(agent_id=agent_id,allowed_movements_start=start_movement,allowed_movements_end=end_movement)
+        self.restrictions[agent_id] = AgentTimeRestriction(agent_id,start_movement,end_movement)
     
     def can_agent_trade(self, agent_id: str) -> bool:
-        restriction = self.agent_restrictions.get(agent_id)
+        restriction = self.restrictions.get(agent_id)
         if restriction is None:
             return True
-        
         if restriction.is_blocked:
             return False
-        
-        if self.enable_market_sessions and not self.is_market_open():
+        if self.market_sess and not self.is_market_open():
             return False
-        
-        if (restriction.allowed_movements_start <= self.current_movement < restriction.allowed_movements_end):
+        if (restriction.allow_st <= self.curr_movement < restriction.allow_ed):
             return True
-        
         return False
     
     def update_agent_performance(self, agent_id: str, performance: float):
-        if agent_id not in self.agent_performance_history:
-            self.agent_performance_history[agent_id] = []
-        
-        self.agent_performance_history[agent_id].append(performance)
-        if len(self.agent_performance_history[agent_id]) > 100:
-            self.agent_performance_history[agent_id].pop(0)
-        
-        if agent_id in self.agent_restrictions:
-            recent_perf = self.agent_performance_history[agent_id][-10:]
+        if agent_id not in self.history:
+            self.history[agent_id] = []
+        self.history[agent_id].append(performance)
+
+        if len(self.history[agent_id]) > 100:
+            self.history[agent_id].pop(0)
+
+        if agent_id in self.restrictions:
+            recent_perf = self.restrictions[agent_id][-10:]
             avg_perf = sum(recent_perf) / len(recent_perf) if recent_perf else 0.5
-            self.agent_restrictions[agent_id].performance_score = avg_perf
+            self.restrictions[agent_id].performance_score = avg_perf
     
     def _adjust_time_windows(self):
-        if not self.enable_dynamic_adjustment:
+        if not self.dynamic_adj:
             return
-        for agent_id, restriction in self.agent_restrictions.items():
-            perf_history = self.agent_performance_history.get(agent_id, [])
+        for agent_id, restriction in self.restrictions.items():
+            perf_history = self.history.get(agent_id, [])
             if len(perf_history) < 10:
                 continue
             recent_perf = sum(perf_history[-10:]) / 10
-            current_window = restriction.allowed_movements_end - restriction.allowed_movements_start
-            if recent_perf > 0.7 and current_window < self.movements_per_day - 2:
-                new_start = max(0, restriction.allowed_movements_start - 1)
-                new_end = min(self.movements_per_day, restriction.allowed_movements_end + 1)
-                restriction.adjustment_history.append((new_start, new_end))
-                restriction.allowed_movements_start = new_start
-                restriction.allowed_movements_end = new_end
-                
+            current_window = restriction.allow_ed - restriction.allow_ed
+            if recent_perf > 0.7 and current_window < self.mov_per_day - 2:
+                new_start = max(0, restriction.allow_st - 1)
+                new_end = min(self.mov_per_day, restriction.allow_ed + 1)
+                restriction.hist.append((new_start, new_end))
+                restriction.allow_st = new_start
+                restriction.allow_ed = new_end
             elif recent_perf < 0.3 and current_window > 2:
-                new_start = min(self.movements_per_day - 2, restriction.allowed_movements_start + 1)
-                new_end = max(2, restriction.allowed_movements_end - 1)
-                restriction.adjustment_history.append((new_start, new_end))
-                restriction.allowed_movements_start = new_start
-                restriction.allowed_movements_end = new_end
+                new_start = min(self.mov_per_day - 2, restriction.allow_st + 1)
+                new_end = max(2, restriction.allow_ed - 1)
+                restriction.hist.append((new_start, new_end))
+                restriction.allow_st = new_start
+                restriction.allow_ed = new_end
     
-    def block_agent(self, agent_id: str, duration: int, reason: str = "Unknown"):
-        """Block an agent from trading for a specified duration"""
-        if agent_id in self.agent_restrictions:
-            self.agent_restrictions[agent_id].is_blocked = True
-            self.agent_restrictions[agent_id].block_remaining = duration
-            self.agent_restrictions[agent_id].block_reason = reason
+    def block_agent(self, agent_id: str, duration: int):
+        if agent_id in self.restrictions:
+            self.restrictions[agent_id].is_blocked = True
+            self.restrictions[agent_id].rem_block = duration
         else:
-            self.agent_restrictions[agent_id] = AgentTimeRestriction(agent_id=agent_id,allowed_movements_start=0,allowed_movements_end=self.movements_per_day,is_blocked=True,block_remaining=duration,block_reason=reason)
+            self.agent_restrictions[agent_id] = AgentTimeRestriction(agent_id=agent_id,allow_st=0,allow_ed=self.mov_per_day,is_blocked=True,rem_block=duration)
     
     def update_agent_blocks(self):
-        for agent_id, restriction in self.agent_restrictions.items():
-            if restriction.is_blocked and restriction.block_remaining > 0:
-                restriction.block_remaining -= 1
-                if restriction.block_remaining <= 0:
+        for agent_id, restriction in self.restrictions.items():
+            if restriction.is_blocked and restriction.rem_block > 0:
+                restriction.rem_block -= 1
+                if restriction.rem_block <= 0:
                     restriction.is_blocked = False
-                    restriction.block_reason = None
     
     def trigger_random_block_event(self, agent_ids: List[str]) -> Optional[str]:
-        """ Trigger a random agent blocking event """
-        if random.random() < self.block_probability and agent_ids:
+        if random.random() < self.p_block and agent_ids:
             blocked_agent = random.choice(agent_ids)
-            # Block for random duration (5-20 movements)
             duration = random.randint(5, 20)
-            self.block_agent(blocked_agent, duration, "Random blocking event")
+            self.block_agent(blocked_agent, duration)
             return blocked_agent
         return None
     
     def trigger_random_kill_event(self, agent_ids: List[str]) -> Optional[str]:
-        """
-        Trigger a random agent kill event (very rare).
-        """
-        if random.random() < self.kill_probability and agent_ids:
+        if random.random() < self.p_kill and agent_ids:
             killed_agent = random.choice(agent_ids)
-            # Block for very long duration
-            duration = self.movements_per_day * 10 
-            self.block_agent(killed_agent, duration, "Agent killed (rare event)")
+            duration = self.mov_per_day * 9999999 
+            self.block_agent(killed_agent, duration)
             return killed_agent
         return None
     
     def get_agent_status(self, agent_id: str) -> Dict:
-        restriction = self.agent_restrictions.get(agent_id)
+        restriction = self.restrictions.get(agent_id)
         if restriction is None:
             return {'agent_id': agent_id,'can_trade': True,'is_blocked': False,'block_remaining': 0,'time_window': None}
-        return {'agent_id': agent_id,'can_trade': self.can_agent_trade(agent_id),'is_blocked': restriction.is_blocked,'block_remaining': restriction.block_remaining,'block_reason': restriction.block_reason,'time_window': (restriction.allowed_movements_start, restriction.allowed_movements_end)}
+        return {'agent_id': agent_id,'can_trade': self.can_agent_trade(agent_id),'is_blocked': restriction.is_blocked,'block_remaining': restriction.rem_block,'time_window': (restriction.allow_st, restriction.allow_ed)}
     
     def initialize_default_restrictions(self, agent_ids: List[str]):
         n_agents = len(agent_ids)
-        
-        # Early traders (first 30% of day)
+        e_lb,e_ub = int(self.mov_per_day * 0.1) ,int(self.mov_per_day * 0.3)
         early_count = max(1, n_agents // 3)
         for i in range(early_count):
             if i < len(agent_ids):
-                end = random.randint(3, 5)
-                self.add_agent_restriction(agent_ids[i], 0, end)
-        
-        # Mid-day traders (30-70% of day)
+                self.add_agent_restriction(agent_ids[i], 0, random.randint(e_lb,e_ub))
+        m_lb,m_ub = int(self.mov_per_day * 0.4) ,int(self.mov_per_day * 0.6)
         mid_count = max(1, n_agents // 3)
         for i in range(early_count, early_count + mid_count):
             if i < len(agent_ids):
-                start = random.randint(3, 5)
-                end = random.randint(7, 9)
-                self.add_agent_restriction(agent_ids[i], start, end)
-        
-        # Late traders (last 30% of day)
+                self.add_agent_restriction(agent_ids[i], random.randint(e_lb,e_ub), random.randint(m_lb,m_ub))
+        r_lb,r_ub = int(self.mov_per_day * 0.7) ,int(self.mov_per_day * 0.9)
         for i in range(early_count + mid_count, n_agents):
             if i < len(agent_ids):
-                start = random.randint(7, 9)
-                self.add_agent_restriction(agent_ids[i], start, self.movements_per_day)
+                self.add_agent_restriction(agent_ids[i],random.randint(r_lb,r_ub), self.mov_per_day)
     
     def get_time_diversity_metrics(self) -> Dict[str, Any]:
-        if not self.agent_restrictions:
+        if not self.restrictions:
             return {'diversity_score': 0.0}        
-        windows = [(r.allowed_movements_start, r.allowed_movements_end) for r in self.agent_restrictions.values()]
-        total_overlap = 0
-        n_pairs = 0
+        windows = [(r.allow_st, r.allow_ed) for r in self.restrictions.values()]
+        total_overlap = n_pairs = 0
         for i in range(len(windows)):
             for j in range(i + 1, len(windows)):
                 start1, end1 = windows[i]
@@ -271,20 +233,17 @@ class TimeManager:
                 overlap = max(0, min(end1, end2) - max(start1, start2))
                 total_overlap += overlap
                 n_pairs += 1
-        
-        avg_overlap = total_overlap / n_pairs if n_pairs > 0 else 0
-        max_possible_overlap = self.movements_per_day
+        avg_overlap = (total_overlap / n_pairs) if n_pairs > 0 else 0
+        max_possible_overlap = self.mov_per_day
         diversity_score = 1.0 - (avg_overlap / max_possible_overlap)
-
         return {'diversity_score': diversity_score,'avg_overlap': avg_overlap,'num_windows': len(windows),'window_sizes': [end - start for start, end in windows]}
     
     def convert_to_real_time(self, movement: int) -> datetime:
-        """Convert movement number to simulated real time"""
-        if self.day_start_time is None:
+        if self.day_st_time is None:
             return datetime.now()
-        seconds_per_movement = self.day_duration_seconds / self.movements_per_day
+        seconds_per_movement = self.day_dur / self.mov_per_day
         elapsed_seconds = movement * seconds_per_movement
-        real_time = datetime.fromtimestamp(self.day_start_time + elapsed_seconds)
+        real_time = datetime.fromtimestamp(self.day_st_time + elapsed_seconds)
         return real_time
     
     def get_timezone_offset(self) -> int:
@@ -292,17 +251,12 @@ class TimeManager:
         return offsets.get(self.timezone, 0)
     
     def reset(self):
-        self.current_day = 0
-        self.current_movement = 0
-        self.total_steps = 0
-        self.simulation_start_time = None
-        self.day_start_time = None
-        self.is_black_box = False
-        self.black_box_counter = 0
-        self.black_box_remaining = 0
-        self.agent_restrictions.clear()
-        self.agent_performance_history.clear()
-        self.current_session = MarketSession.CLOSED
+        self.curr_day = self.curr_movement = self.tot_steps = self.bbox_counter = self.bbox_t_rem = 0
+        self.sim_st_time = self.day_st_time = None
+        self.is_bbox = False
+        self.restrictions.clear()
+        self.history.clear()
+        self.curr_sess = MarketSession.CLOSED
     
     def get_state(self) -> Dict:
-        return {'current_day': self.current_day,'current_movement': self.current_movement,'total_steps': self.total_steps,'day_progress': self.get_day_progress(),'is_black_box': self.is_black_box,'black_box_remaining': self.black_box_remaining,'time_until_day_end': self.get_time_until_day_end(),'active_restrictions': len(self.agent_restrictions)}
+        return {'current_day': self.curr_day,'current_movement': self.curr_movement,'total_steps': self.tot_steps,'day_progress': self.get_day_progress(),'is_black_box': self.is_bbox,'black_box_remaining': self.bbox_t_rem,'time_until_day_end': self.get_time_until_day_end(),'active_restrictions': len(self.restrictions)}

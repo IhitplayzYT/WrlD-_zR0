@@ -1,7 +1,4 @@
-try:
-    import pymupdf as fitz
-except ImportError:
-    import fitz  # PyMuPDF
+
 from tabulate import tabulate
 import polars as pl
 import re
@@ -14,6 +11,10 @@ def extract_pdf(pdf_path: str,describe_image) -> str:
       - images -> describe_image(image_bytes)
     Returns one large string.
     """
+    try:
+        import pymupdf as fitz
+    except ImportError:
+        import fitz 
     doc = fitz.open(pdf_path)
     output = []
     for page_num, page in enumerate(doc, start=1):
@@ -45,6 +46,10 @@ def extract_pdf(pdf_path: str,describe_image) -> str:
 
 def ingest_pdf(pdf_path: str) -> pl.DataFrame:
     """ Extracts numeric data from tables and returns DataFrame with 'price' column """
+    try:
+        import pymupdf as fitz
+    except ImportError:
+        import fitz 
     doc = fitz.open(pdf_path)
     prices = []
     for page in doc:

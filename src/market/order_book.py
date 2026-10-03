@@ -14,7 +14,7 @@ class Order:
     agent_id: str
     side: OrderSide
     price: float
-    quantity: int
+    qty: int
     timestamp: float = field(default_factory=time.time)
 
     def __lt__(self, other: 'Order') -> bool:
@@ -28,17 +28,17 @@ class Order:
 
 @dataclass
 class Trade:
-    buy_order_id: str
-    sell_order_id: str
+    buy_id: str
+    sell_id: str
     price: float
-    quantity: int
+    qty: int
     timestamp: float = field(default_factory=time.time)
 
 class OrderBook:
     def __init__(self):
         self._order_counter = 0
-        self.bids: SortedDict = SortedDict(lambda k: -k)
-        self.asks: SortedDict = SortedDict()
+        self.bids: SortedDict[float,Order] = SortedDict(lambda k: -k)
+        self.asks: SortedDict[float,Order] = SortedDict()
         self.order_map: Dict[str, Order] = {} 
         self.trades: List[Trade] = []
         
@@ -50,7 +50,6 @@ class OrderBook:
         order_id = self._generate_order_id()
         order = Order(order_id, agent_id, side, price, quantity)
         self.order_map[order_id] = order
-
         if side == OrderSide.BUY:
             if price not in self.bids:
                 self.bids[price] = SortedList(key=lambda o: o.timestamp)
@@ -59,7 +58,6 @@ class OrderBook:
             if price not in self.asks:
                 self.asks[price] = SortedList(key=lambda o: o.timestamp)
             self.asks[price].add(order)
-        
         self._match_orders()
         return order_id
     
@@ -77,8 +75,8 @@ class OrderBook:
                 self.asks[order.price].remove(order)
                 if not self.asks[order.price]:
                     del self.asks[order.price]
-        
         del self.order_map[order_id]
+
         return True
     
     def _match_orders(self) -> List[Trade]:
@@ -89,14 +87,13 @@ class OrderBook:
                 best_bid = self.bids[best_bid_price][0]
                 best_ask = self.asks[best_ask_price][0]
                 trade_price = (best_bid_price + best_ask_price) * 0.5
-                trade_quantity = min(best_bid.quantity, best_ask.quantity)
-                trade = Trade(buy_order_id=best_bid.id, sell_order_id=best_ask.id, price=trade_price, quantity=trade_quantity)
+                trade_quantity = min(best_bid.qty, best_ask.qty)
+                trade = Trade(best_bid.id,best_ask.id,trade_price,trade_quantity)
                 new_trades.append(trade)
                 self.trades.append(trade)                
-                best_bid.quantity -= trade_quantity
-                best_ask.quantity -= trade_quantity
-                
-                if best_bid.quantity == 0:
+                best_bid.qty -= trade_quantity
+                best_ask.qty -= trade_quantity
+                if best_bid.qty == 0:
                     self.bids[best_bid_price].pop(0)
                     del self.order_map[best_bid.id]
                     if not self.bids[best_bid_price]:
@@ -104,7 +101,7 @@ class OrderBook:
                 else:
                     self.order_map[best_bid.id] = best_bid
                 
-                if best_ask.quantity == 0:
+                if best_ask.qty == 0:
                     self.asks[best_ask_price].pop(0)
                     del self.order_map[best_ask.id]
                     if not self.asks[best_ask_price]:
@@ -119,13 +116,13 @@ class OrderBook:
         if not self.bids:
             return None
         best_price = self.bids.keys()[0]
-        return (best_price, sum(o.quantity for o in self.bids[best_price]))
+        return (best_price, sum(o.qty for o in self.bids[best_price]))
     
     def get_best_ask(self) -> Optional[Tuple[float, int]]:
         if not self.asks:
             return None
         best_price = self.asks.keys()[0]
-        return (best_price, sum(o.quantity for o in self.asks[best_price]))
+        return (best_price, sum(o.qty for o in self.asks[best_price]))
     
     def get_spread(self) -> Optional[float]:
         best_bid, best_ask = self.get_best_bid(), self.get_best_ask()
@@ -140,23 +137,19 @@ class OrderBook:
         return (best_bid[0] + best_ask[0]) * 0.5
     
     def get_market_depth(self, depth: int = 5) -> Dict:
-        bid_levels = []
-        ask_levels = []
+        bid_levels,ask_levels = [],[]
         bid_prices: Dict[float, int] = {}
         ask_prices: Dict[float, int] = {}
-
         for price in list(self.bids.keys())[:depth * 10]:
             for order in self.bids[price]:
-                bid_prices[order.price] = bid_prices.get(order.price, 0) + order.quantity
+                bid_prices[order.price] = bid_prices.get(order.price, 0) + order.qty
         for price in list(self.asks.keys())[:depth * 10]:
             for order in self.asks[price]:
-                ask_prices[order.price] = ask_prices.get(order.price, 0) + order.quantity
-
+                ask_prices[order.price] = ask_prices.get(order.price, 0) + order.qty
         for price in sorted(bid_prices.keys(), reverse=True)[:depth]:
             bid_levels.append({'price': price, 'quantity': bid_prices[price]})
         for price in sorted(ask_prices.keys())[:depth]:
             ask_levels.append({'price': price, 'quantity': ask_prices[price]})
-        
         return {'bids': bid_levels, 'asks': ask_levels, 'spread': self.get_spread(), 'mid_price': self.get_mid_price()}
     
     def calculate_price_impact(self, quantity: int, side: OrderSide) -> float:
@@ -170,7 +163,7 @@ class OrderBook:
                 for order in self.asks[price]:
                     if remaining_qty <= 0:
                         break
-                    fill_qty = min(remaining_qty, order.quantity)
+                    fill_qty = min(remaining_qty, order.qty)
                     total_cost += order.price * fill_qty
                     filled_qty += fill_qty
                     remaining_qty -= fill_qty
@@ -191,7 +184,7 @@ class OrderBook:
                 for order in self.bids[price]:
                     if remaining_qty <= 0:
                         break
-                    fill_qty = min(remaining_qty, order.quantity)
+                    fill_qty = min(remaining_qty, order.qty)
                     total_revenue += order.price * fill_qty
                     filled_qty += fill_qty
                     remaining_qty -= fill_qty
@@ -209,7 +202,7 @@ class OrderBook:
             if i >= 10:
                 break
             for order in self.bids[price]:
-                bid_list.append((order.price, order.quantity))
+                bid_list.append((order.price, order.qty))
                 if len(bid_list) >= 10:
                     break
             if len(bid_list) >= 10:
@@ -218,25 +211,15 @@ class OrderBook:
             if i >= 10:
                 break
             for order in self.asks[price]:
-                ask_list.append((order.price, order.quantity))
+                ask_list.append((order.price, order.qty))
                 if len(ask_list) >= 10:
                     break
             if len(ask_list) >= 10:
                 break
-        return {
-            'bids': bid_list,
-            'asks': ask_list,
-            'best_bid': self.get_best_bid(),
-            'best_ask': self.get_best_ask(),
-            'spread': self.get_spread(),
-            'mid_price': self.get_mid_price(),
-            'total_bid_volume': sum(sum(o.quantity for o in orders) for orders in self.bids.values()),
-            'total_ask_volume': sum(sum(o.quantity for o in orders) for orders in self.asks.values()),
-            'num_trades': len(self.trades)
-        }
+        return {'bids': bid_list,'asks': ask_list,'best_bid': self.get_best_bid(),'best_ask': self.get_best_ask(),'spread': self.get_spread(),'mid_price': self.get_mid_price(),'total_bid_volume': sum(sum(o.qty for o in orders) for orders in self.bids.values()),'total_ask_volume': sum(sum(o.qty for o in orders) for orders in self.asks.values()),'num_trades': len(self.trades)}
     
     def get_recent_trades(self, limit: int = 10) -> List[Dict]:
-        return [{'price': t.price, 'quantity': t.quantity, 'timestamp': t.timestamp, 'buy_order_id': t.buy_order_id, 'sell_order_id': t.sell_order_id} for t in (self.trades[-limit:] if self.trades else [])]
+        return [{'price': t.price, 'quantity': t.qty, 'timestamp': t.timestamp, 'buy_order_id': t.buy_id, 'sell_order_id': t.sell_id} for t in (self.trades[-limit:] if self.trades else [])]
     
     def reset(self):
         self.bids.clear()

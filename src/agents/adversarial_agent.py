@@ -5,7 +5,6 @@ import random
 from .base_agent import BaseAgent, AgentTraits, AgentType
 from src.utils.logging import JSONLogger, get_logger, LogCategory
 
-
 @dataclass
 class ManipulationStrategy:
     strategy_type: str = "pump_and_dump"

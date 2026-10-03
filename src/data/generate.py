@@ -23,7 +23,6 @@ transition = {
 def generate_stock(n: int, start_price: float = 100.0, seed: int | None = None, vol: float = 1000.0) -> pl.DataFrame:
     if n <= 0 or start_price <= 0:
         raise ValueError("n and start_price must be > 0")
-
     rng = np.random.default_rng(seed)
     prices = np.empty(n, dtype=np.float64)
     returns = np.empty(n, dtype=np.float64)
@@ -81,15 +80,8 @@ def generate_stock(n: int, start_price: float = 100.0, seed: int | None = None, 
         prices[t] = max(1.0, prices[t - 1] * np.exp(r))
         volumes[t] = np.exp(np.log(base_volume) + volume_return_sensitivity * abs(r) + 5.0 * current_vol + rng.normal(0.0, volume_noise))
 
-    return pl.DataFrame({
-        "t": np.arange(n, dtype=np.int64),
-        "price": prices,
-        "return": returns,
-        "volume": volumes.astype(np.int64),
-        "regime": regime_col
-    })
+    return pl.DataFrame({"t": np.arange(n, dtype=np.int64),"price": prices,"return": returns,"volume": volumes.astype(np.int64),"regime": regime_col})
 
-# Pull stock data or fallback to synthetic stock generation
 def fetch_aapl_data(start_date: str = "2016-01-01", end_date: str = "2022-12-31") -> pl.DataFrame:
     try:
         ticker = yf.Ticker("AAPL")

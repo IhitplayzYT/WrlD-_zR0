@@ -87,7 +87,6 @@ class TrainConf:
 
 
 class ExperienceReplay:
-    """ Priority replay """
     def __init__(self, cap: int, prioritized: bool = True):
         self.cap = cap 
         self.is_priority = prioritized
@@ -104,25 +103,23 @@ class ExperienceReplay:
     def sample(self, sz: int) -> List[Tuple]:
         if not self.buff:
             return []
+            indices = []
         if self.is_priority and self.priorities and len(self.buff) > 0:
             priorities = np.array(self.priorities, dtype=np.float64)
             probs = priorities / (priorities.sum() + EPS)
             indices = np.random.choice(len(self.buff), min(sz, len(self.buff)), p=probs)
-            return [self.buff[i] for i in indices]
         else:
             indices = np.random.choice(len(self.buff), min(sz, len(self.buff)))
-            return [self.buff[i] for i in indices]
+        return [self.buff[i] for i in indices]
     
     def __len__(self):
         return len(self.buff)
 
 
 class TrainingPipeline:
-
     def __init__(self, config: TrainConf, logger: Optional[JSONLogger] = None):
         Path(config.checkpoint_dir).mkdir(parents=True, exist_ok=True)
         Path(config.log_dir).mkdir(parents=True, exist_ok=True)
-
         self.conf = config
         self.logger = logger or get_logger()
         self.scheduler = TrainingScheduler(logger=self.logger) if config.use_trainer else None
@@ -134,7 +131,6 @@ class TrainingPipeline:
         self.env: Optional[MarketEnvironment] = None
         self.train_log: List[Dict] = []
         self.start_time = datetime.now()
-
         self.exp_tracker = ExperimentTracker(config.log_dir, f"training_{datetime.now().strftime('%Y%m%d_%H%M%S')}", logger=self.logger)
         self.exp_tracker.log_hyperparameters(config.__dict__)
     
@@ -149,18 +145,7 @@ class TrainingPipeline:
                 agent_types[-1] = "adversarial" 
         else:
             agent_types = ["rlaif"] * self.conf.n_agents
-        return MarketEnvironment(
-            n_agents=self.conf.n_agents,
-            max_bad_agents=self.conf.mx_bad_agents,
-            initial_cash=self.conf.init_cash,
-            episode_length=self.conf.episode_len,
-            price_data=price_data,
-            black_box_frequency=train_lvl.bbox_freq if train_lvl else 20,
-            black_box_duration=5,
-            use_enhanced_observation=True,
-            agent_types=agent_types,
-            logger=self.logger
-        )
+        return MarketEnvironment(n_agents=self.conf.n_agents,max_bad_agents=self.conf.mx_bad_agents,initial_cash=self.conf.init_cash,episode_length=self.conf.episode_len,price_data=price_data,black_box_frequency=train_lvl.bbox_freq if train_lvl else 20,black_box_duration=5,use_enhanced_observation=True,agent_types=agent_types,logger=self.logger)
     
     def _gen_price_data(self, train_lvl: Optional[TrainingLevel]) -> Dict[str, List[float]]:
         volatility = 0.01 if train_lvl is None else train_lvl.volatility * 0.03
@@ -181,20 +166,15 @@ class TrainingPipeline:
             for agent_id in env.agents:
                 agent_obj = env.agent_objects[agent_id]
                 actions[agent_id] = agent_obj.decide_action(obs[agent_id], env.action_space)
-            
             n_obs, rewards, terminated, truncated, info = env.step(actions)
             done = terminated or truncated
             episode_len += 1
             for agent_id, r in rewards.items():
                 episode_reward += r
                 agent_rewards[agent_id] += r
-
             if self.replay_buff:
                 first_agent = env.agents[0]
-                self.replay_buff.add(
-                    obs[first_agent], actions[first_agent], rewards[first_agent],
-                    n_obs[first_agent], done, priority=abs(rewards[first_agent]) if self.conf.prioritize_replay else None
-                )
+                self.replay_buff.add(obs[first_agent], actions[first_agent], rewards[first_agent],n_obs[first_agent], done, priority=abs(rewards[first_agent]) if self.conf.prioritize_replay else None)
             obs = n_obs 
         
         for agent_id, reward in agent_rewards.items():
@@ -205,13 +185,7 @@ class TrainingPipeline:
         if self.scheduler:
             curriculum_level = self.scheduler.get_curr_lvl()
             episode_reward *= curriculum_level.rwrd_scale
-
-        return {
-            'episode_reward': episode_reward,
-            'episode_length': episode_len,
-            'agent_rewards': agent_rewards,
-            'average_agent_reward': float(np.mean(list(agent_rewards.values())))
-        }
+        return {'episode_reward': episode_reward,'episode_length': episode_len,'agent_rewards': agent_rewards,'average_agent_reward': float(np.mean(list(agent_rewards.values())))}
     
     def evaluate(self, env: MarketEnvironment, n_episodes: int = 5) -> Dict[str, float]:
         eval_rewards, eval_lengths = [], []
@@ -226,13 +200,7 @@ class TrainingPipeline:
                 done = terminated or truncated
             eval_rewards.append(episode_reward)
             eval_lengths.append(episode_length)
-        return {
-            'mean_reward': float(np.mean(eval_rewards)),
-            'std_reward': float(np.std(eval_rewards)),
-            'mean_length': float(np.mean(eval_lengths)),
-            'max_reward': float(np.max(eval_rewards)),
-            'min_reward': float(np.min(eval_rewards))
-        }
+        return {'mean_reward': float(np.mean(eval_rewards)),'std_reward': float(np.std(eval_rewards)),'mean_length': float(np.mean(eval_lengths)),'max_reward': float(np.max(eval_rewards)),'min_reward': float(np.min(eval_rewards))}
     
     def train(self):
         self.logger.info(LogCategory.TRAINING, f"Starting training for {self.conf.n_episodes} episodes", data={'n_episodes': self.conf.n_episodes, 'curriculum_learning': self.conf.use_trainer, 'experience_replay': self.conf.use_experience_replay})
@@ -267,43 +235,18 @@ class TrainingPipeline:
         window = max(1, self.conf.log_freq)
         avg_reward = float(np.mean(self.ep_reward[-window:]))
         avg_length = float(np.mean(self.ep_len[-window:]))
-        log_entry = {
-            'episode': episode,
-            'episode_reward': metrics['episode_reward'],
-            'episode_length': metrics['episode_length'],
-            'average_reward': avg_reward,
-            'average_length': avg_length,
-            'curriculum_level': self.scheduler.get_curr_lvl().lvl if self.scheduler else 0,
-            'timestamp': datetime.now().isoformat()
-        }
+        log_entry = {'episode': episode,'episode_reward': metrics['episode_reward'],'episode_length': metrics['episode_length'],'average_reward': avg_reward,'average_length': avg_length,'curriculum_level': self.scheduler.get_curr_lvl().lvl if self.scheduler else 0,'timestamp': datetime.now().isoformat()}
         self.train_log.append(log_entry)
         self.logger.info(LogCategory.TRAINING, f"Episode {episode} progress", data={'episode': episode, 'reward': metrics['episode_reward'], 'avg_reward': avg_reward, 'length': metrics['episode_length'], 'curriculum_level': log_entry['curriculum_level']})
-        self.exp_tracker.log_metrics({
-            'episode_reward': metrics['episode_reward'],
-            'average_reward': avg_reward,
-            'episode_length': metrics['episode_length'],
-            'curriculum_level': log_entry['curriculum_level']
-        }, step=episode)
+        self.exp_tracker.log_metrics({'episode_reward': metrics['episode_reward'],'average_reward': avg_reward,'episode_length': metrics['episode_length'],'curriculum_level': log_entry['curriculum_level']}, step=episode)
     
     def _log_evaluation(self, episode: int, metrics: Dict[str, float]):
         self.logger.info(LogCategory.EVALUATION, f"Evaluation at episode {episode}", data={'episode': episode, 'mean_reward': metrics['mean_reward'], 'std_reward': metrics['std_reward'], 'max_reward': metrics['max_reward']})
-        self.exp_tracker.log_metrics({
-            'eval_mean_reward': metrics['mean_reward'],
-            'eval_std_reward': metrics['std_reward'],
-            'eval_max_reward': metrics['max_reward'],
-            'eval_min_reward': metrics['min_reward']
-        }, step=episode)
+        self.exp_tracker.log_metrics({'eval_mean_reward': metrics['mean_reward'],'eval_std_reward': metrics['std_reward'],'eval_max_reward': metrics['max_reward'],'eval_min_reward': metrics['min_reward']}, step=episode)
     
     def _save_checkpoint(self, episode: int):
         checkpoint_path = Path(self.conf.checkpoint_dir) / f"checkpoint_ep{episode}.pt"
-        checkpoint = {
-            'episode': episode,
-            'episode_rewards': self.ep_reward,
-            'episode_lengths': self.ep_len,
-            'agent_performances': self.performance,
-            'curriculum_level': self.scheduler.get_curr_lvl().lvl if self.scheduler else 0,
-            'config': self.conf.__dict__
-        }
+        checkpoint = {'episode': episode,'episode_rewards': self.ep_reward,'episode_lengths': self.ep_len,'agent_performances': self.performance,'curriculum_level': self.scheduler.get_curr_lvl().lvl if self.scheduler else 0,'config': self.conf.__dict__}
         if self.env:
             agent_models = {}
             for agent_id, agent in self.env.agent_objects.items():
@@ -312,7 +255,6 @@ class TrainingPipeline:
                     agent.save_model(str(model_path))
                     agent_models[agent_id] = str(model_path)
             checkpoint['agent_models'] = agent_models
-        
         torch.save(checkpoint, checkpoint_path)
         self.logger.info(LogCategory.TRAINING, "Saved checkpoint", data={'episode': episode, 'checkpoint_path': str(checkpoint_path)})
     
@@ -323,16 +265,7 @@ class TrainingPipeline:
         self.logger.info(LogCategory.TRAINING, "Saved training log", data={'log_path': str(log_path)})
     
     def summary(self):
-        summary_data = {
-            'total_episodes': self.curr_ep + 1,
-            'average_reward': float(np.mean(self.ep_reward)) if self.ep_reward else 0.0,
-            'max_reward': float(np.max(self.ep_reward)) if self.ep_reward else 0.0,
-            'min_reward': float(np.min(self.ep_reward)) if self.ep_reward else 0.0,
-            'average_episode_length': float(np.mean(self.ep_len)) if self.ep_len else 0.0,
-            'final_curriculum_level': self.scheduler.get_curr_lvl().lvl if self.scheduler else 0,
-            'level_progression': self.scheduler.lvl_hist if self.scheduler else [],
-            'training_duration': str(datetime.now() - self.start_time)
-        }
+        summary_data = {'total_episodes': self.curr_ep + 1,'average_reward': float(np.mean(self.ep_reward)) if self.ep_reward else 0.0,'max_reward': float(np.max(self.ep_reward)) if self.ep_reward else 0.0,'min_reward': float(np.min(self.ep_reward)) if self.ep_reward else 0.0,'average_episode_length': float(np.mean(self.ep_len)) if self.ep_len else 0.0,'final_curriculum_level': self.scheduler.get_curr_lvl().lvl if self.scheduler else 0,'level_progression': self.scheduler.lvl_hist if self.scheduler else [],'training_duration': str(datetime.now() - self.start_time)}
         self.logger.info(LogCategory.TRAINING, "Training Summary", data=summary_data)
         self.exp_tracker.log_summary(summary_data)
         self.exp_tracker.finish()

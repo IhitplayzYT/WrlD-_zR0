@@ -1,13 +1,6 @@
-===============================================================================
-WrlD-_zR0: Synthetic RL Market Simulation - CLI Usage & Command Syntax Guide
-===============================================================================
-
-SYNTAX OVERVIEW
----------------
 python3 src/main.py [OPTIONS]
 
-AVAILABLE COMMAND-LINE ARGUMENTS (CLARGS)
-----------------------------------------
+CLARGS: 
 
 1. GENERAL & ENVIRONMENT OPTIONS:
    -h, --help
@@ -85,8 +78,8 @@ AVAILABLE COMMAND-LINE ARGUMENTS (CLARGS)
    -trainer, --enable_trainer
        Enables curriculum learning and experience replay training pipeline.
 
-EXAMPLE COMMAND INVOCATIONS
----------------------------
+Eg: 
+
 Standard run:
     python3 src/main.py
 
@@ -98,4 +91,3 @@ Multi-stock simulation with short episode length:
 
 Using a JSON configuration file:
     python3 src/main.py -c=config.json -d
-===============================================================================

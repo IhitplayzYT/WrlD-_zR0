@@ -1,6 +1,7 @@
 from src.utils.logging import JSONLogger, get_logger, LogCategory
 from dataclasses import dataclass 
 from typing import Dict, Optional, Any 
+import random
 import numpy as np
 try:
     from stable_baselines3 import PPO, SAC
@@ -9,40 +10,23 @@ try:
 except ImportError:
     HAS_SB3 = False
 
-import random
 from .base_agent import BaseAgent, AgentTraits, AgentType 
 
 @dataclass
 class PreferenceModel:
-    """
-    Preference model for RLAIF - evaluates agent actions based on multiple principles.
-    Implements Multi-Objective RLAIF (MORLAIF) with decomposed preference models.
-    """
+    """ Multi-Objective RLAIF (MORLAIF) with decomposed preference models """
     profitability_weight: float = 0.4
     risk_weight: float = 0.3
     market_impact_weight: float = 0.2
     consistency_weight: float = 0.1
     
-    def evaluate_action(
-        self,
-        action: np.ndarray,
-        state: Dict[str, Any],
-        context: Dict[str, Any]
-    ) -> tuple[float, dict[str, float]]:
+    def evaluate_action(self,action: np.ndarray,state: Dict[str, Any],context: Dict[str, Any]) -> tuple[float, dict[str, float]]:
         scores = {}
-        
         scores['profitability'] = self._evaluate_profitability(action, state, context)
         scores['risk'] = self._evaluate_risk(action, state, context)
         scores['market_impact'] = self._evaluate_market_impact(action, state, context)
         scores['consistency'] = self._evaluate_consistency(action, state, context)
-        
-        total_score = (
-            scores['profitability'] * self.profitability_weight +
-            scores['risk'] * self.risk_weight +
-            scores['market_impact'] * self.market_impact_weight +
-            scores['consistency'] * self.consistency_weight
-        )
-        
+        total_score = (scores['profitability'] * self.profitability_weight +scores['risk'] * self.risk_weight +scores['market_impact'] * self.market_impact_weight +scores['consistency'] * self.consistency_weight)
         return total_score, scores
     
     def _evaluate_profitability(self, action: np.ndarray, state: Dict, context: Dict) -> float:

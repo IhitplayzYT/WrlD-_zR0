@@ -41,17 +41,7 @@ class LogEntry:
     step: Optional[int] = None
     
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            'timestamp': self.timestamp.isoformat(),
-            'level': self.lvl.value,
-            'category': self.categ.value,
-            'message': self.desc,
-            'data': self.data,
-            'source': self.src,
-            'agent_id': self.agent_id,
-            'episode': self.episode,
-            'step': self.step
-        }
+        return {'timestamp': self.timestamp.isoformat(),'level': self.lvl.value,'category': self.categ.value,'message': self.desc,'data': self.data,'source': self.src,'agent_id': self.agent_id,'episode': self.episode,'step': self.step}
 
 class LogFilter:
     def __init__(self):
@@ -62,9 +52,7 @@ class LogFilter:
         self.message_pattern = None
 
     def matches(self, entry: LogEntry) -> bool:
-        if (self.level_filter and entry.lvl != self.level_filter) or \
-           (self.category_filter and entry.categ != self.category_filter) or \
-           (self.agent_filter and entry.agent_id != self.agent_filter):
+        if (self.level_filter and entry.lvl != self.level_filter) or (self.category_filter and entry.categ != self.category_filter) or (self.agent_filter and entry.agent_id != self.agent_filter):
             return False
         if self.time_range:
             st, ed = self.time_range
@@ -153,17 +141,7 @@ class JSONLogger:
                 for line in f:
                     try:
                         data = json.loads(line)
-                        entry = LogEntry(
-                            timestamp=datetime.fromisoformat(data['timestamp']),
-                            lvl=LogLevel(data['level']),
-                            categ=LogCategory(data['category']),
-                            desc=data['message'],
-                            data=data.get('data', {}),
-                            src=data.get('source', ''),
-                            agent_id=data.get('agent_id'),
-                            episode=data.get('episode'),
-                            step=data.get('step')
-                        )
+                        entry = LogEntry(timestamp=datetime.fromisoformat(data['timestamp']),lvl=LogLevel(data['level']),categ=LogCategory(data['category']),desc=data['message'],data=data.get('data', {}),src=data.get('source', ''),agent_id=data.get('agent_id'),episode=data.get('episode'),step=data.get('step'))
                         if log_filter is None or log_filter.matches(entry):
                             entries.append(entry)
                             if len(entries) >= limit:
@@ -179,17 +157,7 @@ class JSONLogger:
                         for line in f:
                             try:
                                 data = json.loads(line)
-                                entry = LogEntry(
-                                    timestamp=datetime.fromisoformat(data['timestamp']),
-                                    lvl=LogLevel(data['level']),
-                                    categ=LogCategory(data['category']),
-                                    desc=data['message'],
-                                    data=data.get('data', {}),
-                                    src=data.get('source', ''),
-                                    agent_id=data.get('agent_id'),
-                                    episode=data.get('episode'),
-                                    step=data.get('step')
-                                )
+                                entry = LogEntry(timestamp=datetime.fromisoformat(data['timestamp']),lvl=LogLevel(data['level']),categ=LogCategory(data['category']),desc=data['message'],data=data.get('data', {}),src=data.get('source', ''),agent_id=data.get('agent_id'),episode=data.get('episode'),step=data.get('step'))
                                 if log_filter is None or log_filter.matches(entry):
                                     entries.append(entry)
                                     if len(entries) >= limit:
@@ -204,24 +172,15 @@ class JSONLogger:
         entries = self.query(limit=10000) 
         if not entries:
             return {'total_entries': 0}
-        n_levels: Dict[str, int] = {}
-        n_cats: Dict[str, int] = {}
-        n_agents: Dict[str, int] = {}
+        n_levels= {}
+        n_cats= {}
+        n_agents= {}
         for entry in entries:
             n_levels[entry.lvl.value] = n_levels.get(entry.lvl.value, 0) + 1
             n_cats[entry.categ.value] = n_cats.get(entry.categ.value, 0) + 1
             if entry.agent_id:
                 n_agents[entry.agent_id] = n_agents.get(entry.agent_id, 0) + 1            
-        return {
-            'total_entries': len(entries),
-            'n_levels': n_levels,
-            'n_cats': n_cats,
-            'n_agents': n_agents,
-            'time_range': {
-                'start': min(e.timestamp for e in entries).isoformat(),
-                'end': max(e.timestamp for e in entries).isoformat()
-            }
-        }
+        return {'total_entries': len(entries),'n_levels': n_levels,'n_cats': n_cats,'n_agents': n_agents,'time_range': {'start': min(e.timestamp for e in entries).isoformat(),'end': max(e.timestamp for e in entries).isoformat()}}
     
     def export_logs(self, output_file: str, log_filter: Optional[LogFilter] = None, format: str = 'json'):
         entries = self.query(log_filter, limit=100000)

@@ -1,6 +1,5 @@
 from typing import List, Dict, Optional, Tuple
-from sortedcontainers import SortedDict, SortedList
-from src.market.order_book import OrderBook, Order, OrderSide, Trade
+from src.market.order_book import OrderBook, OrderSide 
 
 class MultiAssetOrderBook:
     def __init__(self, assets: List[str]):

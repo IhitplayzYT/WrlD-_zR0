@@ -31,10 +31,5 @@ class ExperimentTracker:
     
     def finish(self):
         with open(self.exp_dir / "final_state.json", 'w') as f:
-            json.dump({
-                'experiment_name': self.exp_name,
-                'total_steps': len(self.metrics_log),
-                'hyperparameters': self.hyperparams,
-                'completed_at': datetime.now().isoformat()
-            }, f, indent=2)
+            json.dump({'experiment_name': self.exp_name,'total_steps': len(self.metrics_log),'hyperparameters': self.hyperparams,'completed_at': datetime.now().isoformat()}, f, indent=2)
         self.logger.info(LogCategory.SYSTEM, f"Experiment '{self.exp_dir}' completed", data={'experiment_dir': str(self.exp_dir)})

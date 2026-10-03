@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Any, Tuple
 import numpy as np
 from enum import Enum
+from src.utils.logging import JSONLogger, get_logger
 
 TRADING_DAYS = 252
 
@@ -11,7 +12,6 @@ class MetricType(Enum):
     CONSISTENCY = "consistency"
     MARKET_IMPACT = "market_impact"
     PREDICTION_ACCURACY = "prediction_accuracy"
-
 
 @dataclass
 class PerformanceMetrics:
@@ -24,11 +24,9 @@ class PerformanceMetrics:
     var_95 = cvar_95 = 0.0 
     alpha = beta = 0.0
     
-    # Consistency metrics
     win_rate = profit_factor = 0.0
     avg_win = avg_loss = 0.0
     largest_win = largest_loss = 0.0
-    
     tot_trades,avg_trade_dur,turnover_r = 0,0.0,0.0
     avg_slippage = market_impact = liquidity_usage = 0.0
     predict_acc = predict_calib = 0.0
@@ -36,7 +34,6 @@ class PerformanceMetrics:
     def to_dict(self) -> Dict[str, float]:
         return {'total_return': self.tot_ret,'annualized_return': self.annualize_ret,'sharpe_ratio': self.sharpe_r,'sortino_ratio': self.sortino_r,'calmar_ratio': self.calmar_r,'max_drawdown': self.mx_drwdwn,'max_drawdown_duration': self.mx_drwdwn_dur,'volatility': self.volatility,'downside_deviation': self.down_dev,'var_95': self.var_95,'cvar_95': self.cvar_95,'beta': self.beta,'alpha': self.alpha,'win_rate': self.win_rate,'profit_factor': self.profit_factor,'avg_win': self.avg_win,'avg_loss': self.avg_loss,'largest_win': self.largest_win,'largest_loss': self.largest_loss,'total_trades': self.tot_trades,'avg_trade_duration': self.avg_trade_dur,'turnover_rate': self.turnover_r,'avg_slippage': self.avg_slippage,'market_impact': self.market_impact,'liquidity_consumption': self.liquidity_usage,'prediction_accuracy': self.predict_acc,'prediction_calibration': self.predict_calib}
 
-from src.utils.logging import JSONLogger, get_logger
 
 class MetricsCalculator:
     def __init__(self, risk_free_rate: float = 0.02, logger: Optional[JSONLogger] = None):
@@ -155,7 +152,6 @@ class MetricsCalculator:
         beta = covariance / market_variance
         alpha = np.mean(returns) - beta * np.mean(market_returns)
         return beta, alpha
-
 
 class StatisticalSignificanceTester:
     def __init__(self, n_bootstrap: int = 1000, random_seed: Optional[int] = None):

@@ -2,12 +2,8 @@ import polars as pl
 import random
 from typing import List
 
-
-class Augmenter:
-    """Augments stock price data for RLAIF simulation episodes"""
-    
+class Augmenter:    
     def __init__(self, df: pl.DataFrame, n_episodes: int, episode_day_len: int, each_day_movements: int):
-        """ Note : df: DataFrame from ingestors containing stock data with compulsory 'price' column """
         self.df = df
         self.n_episodes = max(1, n_episodes)
         self.episode_day_len = max(1, episode_day_len)
@@ -17,7 +13,6 @@ class Augmenter:
     def extract_price_data(self) -> pl.Series:
         if "price" not in self.df.columns:
             raise ValueError("DataFrame must contain a 'price' column")
-        
         prices = self.df["price"]
         prices = prices.fill_null(strategy="forward")
         prices = prices.fill_null(strategy="backward")
@@ -36,7 +31,6 @@ class Augmenter:
         if cur_l == self.min_data_len:
             return prices
         
-        # Compress by sampling
         if cur_l > self.min_data_len:
             compr_rate = max(1, cur_l // self.min_data_len)
             ret = data_list[::compr_rate][:self.min_data_len]
@@ -44,7 +38,6 @@ class Augmenter:
                 ret.extend([ret[-1]] * (self.min_data_len - len(ret)))
             return pl.Series(ret)
         
-        # Too little data, extrapolate via rand sampling
         while len(data_list) < self.min_data_len:
             cur_l = len(data_list)
             mn_perc, mx_perc = random.uniform(0.05, 0.10), random.uniform(0.15, 0.30)
@@ -130,7 +123,6 @@ class Augmenter:
             j = random.randint(0, l - 1)
             ret[i], ret[j] = ret[j], ret[i]
         return ret
-
 
 def augment_stock_data(df: pl.DataFrame, n_episodes: int, episode_day_len: int, each_day_movements: int) -> List[List[float]]:
     """ Top-level function API to augment stock data """

@@ -27,32 +27,13 @@ if __name__ == "__main__":
         logger.info(LogCategory.SYSTEM, f"CLI args parsed", data={'n_agents': clargs.n_agnts, 'max_bad': clargs.mx_bad, 'config_file': clargs.config_file})
     
     tracker = ExperimentTracker("./logs/experiments", f"sim_{datetime.now().strftime('%Y%m%d_%H%M%S')}", logger=logger)
-    
-    # Enforce constraint: max_bad_agents <= 0.2 * total_agents
     max_bad_allowed = max(1, int(0.2 * clargs.n_agnts))
     clargs.mx_bad = min(clargs.mx_bad, max_bad_allowed)
-
     episode_len_steps = clargs.episode_day_len * clargs.each_day_movements
-    tracker.log_hyperparameters({
-        'n_agents': clargs.n_agnts,
-        'initial_cash': clargs.initial_amount,
-        'episode_length': episode_len_steps,
-        'black_box_duration': clargs.black_bx_dur,
-        'black_box_frequency': clargs.black_bx_freq,
-        'max_bad_agents': clargs.mx_bad,
-        'learning_rate': clargs.learning_rate
-    })
-
-    simulation_metrics = {
-        'n_agents': clargs.n_agnts,
-        'initial_cash': clargs.initial_amount,
-        'episode_length': episode_len_steps,
-        'black_box_duration': clargs.black_bx_dur,
-        'black_box_frequency': clargs.black_bx_freq,
-        'max_bad_agents': clargs.mx_bad
-    }
-
+    tracker.log_hyperparameters({'n_agents': clargs.n_agnts,'initial_cash': clargs.initial_amount,'episode_length': episode_len_steps,'black_box_duration': clargs.black_bx_dur,'black_box_frequency': clargs.black_bx_freq,'max_bad_agents': clargs.mx_bad,'learning_rate': clargs.learning_rate})
+    simulation_metrics = {'n_agents': clargs.n_agnts,'initial_cash': clargs.initial_amount,'episode_length': episode_len_steps,'black_box_duration': clargs.black_bx_dur,'black_box_frequency': clargs.black_bx_freq,'max_bad_agents': clargs.mx_bad}
     events = EventManager(load_default=True)
+
     if clargs.event_file:
         try:
             events.load_events_from_json(clargs.event_file)
@@ -60,7 +41,6 @@ if __name__ == "__main__":
         except Exception as e:
             logger.warning(LogCategory.EVENT, f"Failed to load custom events: {e}")
 
-    # Central Data Flow: Ingest or Generate Multi-Stock Price Data
     stock_map = {}
     if clargs.stock_data:
         for k, x in clargs.stock_data.items():
@@ -92,15 +72,7 @@ if __name__ == "__main__":
 
     if clargs.gui:
         logger.info(LogCategory.SYSTEM, "Launching GUI")
-        simulation_state = {
-            'current_stock_data': {k: v[-1] for k, v in stock_map.items() if v},
-            'price_history': stock_map,
-            'agents': {f"agent_{i}": {'agent_type': 'rlaif', 'cash': clargs.initial_amount, 'holdings': {}, 'total_value': clargs.initial_amount} for i in range(clargs.n_agnts)},
-            'villain_points': 0,
-            'black_box_duration': clargs.black_bx_dur,
-            'black_box_frequency': clargs.black_bx_freq,
-            'rng_bbox': clargs.rng_bbox
-        }
+        simulation_state = {'current_stock_data': {k: v[-1] for k, v in stock_map.items() if v},'price_history': stock_map,'agents': {f"agent_{i}": {'agent_type': 'rlaif', 'cash': clargs.initial_amount, 'holdings': {}, 'total_value': clargs.initial_amount} for i in range(clargs.n_agnts)},'villain_points': 0,'black_box_duration': clargs.black_bx_dur,'black_box_frequency': clargs.black_bx_freq,'rng_bbox': clargs.rng_bbox}
         launch_gui(simulation_state)
         logger.info(LogCategory.SYSTEM, "Exiting GUI")
         logger.flush()
@@ -111,44 +83,27 @@ if __name__ == "__main__":
         clargs.black_bx_dur = random.randint(mn_dur, mx_dur)
         clargs.black_bx_freq = random.randint(mn_freq, mx_freq)
 
-    # Build Agent Types List with constraint (max 20% adversarial)
     n_bad = clargs.mx_bad
     agent_types = ["adversarial"] * n_bad + ["rlaif"] * (clargs.n_agnts - n_bad)
 
-    env = MarketEnvironment(
-        n_agents=clargs.n_agnts,
-        max_bad_agents=clargs.mx_bad,
-        initial_cash=clargs.initial_amount,
-        episode_length=episode_len_steps,
-        price_data=stock_map,
-        black_box_duration=clargs.black_bx_dur,
-        black_box_frequency=clargs.black_bx_freq,
-        event_manager=events,
-        agent_types=agent_types,
-        logger=logger
-    )
-
-    obs, _ = env.reset()
+    env = MarketEnvironment(clargs.n_agnts,clargs.mx_bad,clargs.initial_amount,episode_len_steps,stock_map,clargs.black_bx_dur,clargs.black_bx_freq,events,agent_types,logger)
     summary_model = SummaryModel(logger=logger)
     metrics_calc = MetricsCalculator(logger=logger)
-
-    logger.info(LogCategory.SYSTEM, "Starting market simulation", data={'num_agents': env.n_agents, 'assets': list(stock_map.keys())})
     
+    obs, _ = env.reset()
+    logger.info(LogCategory.SYSTEM, "Starting market simulation", data={'num_agents': env.n_agents, 'assets': list(stock_map.keys())})
     total_steps_executed = 0
     portfolio_history = []
-    
     for step in range(env.episode_length):
         actions = {}
         for id in env.agents:
             agent, ob = env.agent_objects[id], obs[id]
             actions[id] = agent.decide_action(ob, env.action_space)
-            
         obs, rewards, terminated, truncated, _ = env.step(actions)
         total_steps_executed = step + 1
-        
         avg_p_val = float(np.mean([state.total_value for state in env.agent_states.values()]))
         portfolio_history.append(avg_p_val)
-
+        
         if terminated or truncated:
             logger.info(LogCategory.SYSTEM, f"Episode {'terminated' if terminated else 'truncated'} at step {step}", data={'step': step, 'terminated': terminated, 'truncated': truncated})
             break
@@ -158,31 +113,17 @@ if __name__ == "__main__":
             tracker.log_metrics({'current_step': step, 'avg_portfolio_value': avg_p_val}, step=step)
 
     logger.info(LogCategory.SYSTEM, "Simulation completed")
-
     results = {}
     for agent_id, state in env.agent_states.items():
         profit = state.total_value - env.initial_cash
-        results[agent_id] = {
-            'cash': state.cash,
-            'holdings': state.holdings,
-            'total_value': state.total_value,
-            'profit': profit,
-            'is_bad': state.is_bad
-        }
+        results[agent_id] = {'cash': state.cash,'holdings': state.holdings,'total_value': state.total_value,'profit': profit,'is_bad': state.is_bad}
     logger.info(LogCategory.EVALUATION, "Simulation Final Results", data=results)
 
-    # Evaluate Performance Metrics
     returns = np.diff(portfolio_history) / portfolio_history[:-1] if len(portfolio_history) > 1 else []
     perf_metrics = metrics_calc.calculate_metrics(returns=list(returns), portfolio_values=portfolio_history)
     logger.info(LogCategory.EVALUATION, "Market Performance Metrics", data=perf_metrics.to_dict())
 
-    # Generate Summary Commentary
-    overview_summary = summary_model.generate_overview(
-        agent_performances={aid: res['profit'] / env.initial_cash for aid, res in results.items()},
-        market_state={'volatility': float(np.std(returns)) if len(returns) > 0 else 0.02},
-        n_events=len(events.get_active_events()),
-        n_steps=total_steps_executed
-    )
+    overview_summary = summary_model.generate_overview(agent_performances={aid: res['profit'] / env.initial_cash for aid, res in results.items()},market_state={'volatility': float(np.std(returns)) if len(returns) > 0 else 0.02},n_events=len(events.get_active_events()),n_steps=total_steps_executed)
     logger.info(LogCategory.EVALUATION, "Market Summary Commentary", data={'content': overview_summary.content})
 
     simulation_metrics['final_results'] = results

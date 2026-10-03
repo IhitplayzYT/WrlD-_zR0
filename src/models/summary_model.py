@@ -1,8 +1,11 @@
+# AI generated file for the small unique summary/news of actions shown to user in GUI
+
+from typing import Optional
 from dataclasses import dataclass, field
 from typing import Dict, List, Any
 from enum import Enum
 from datetime import datetime
-from collections import Counter
+from src.utils.logging import JSONLogger, get_logger 
 
 class SummaryType(Enum):
     MARKET_ACTIVITY = "market_activity"
@@ -20,11 +23,7 @@ class Summary:
     confidence: float = 1.0
     generated_at: datetime = field(default_factory=datetime.now)
 
-
-from src.utils.logging import JSONLogger, get_logger, LogCategory
-
 class SummaryModel:
-    """ Generate summaries and commentary seen ONLY BY THE USER """
     def __init__(self, logger: Optional[JSONLogger] = None):
         self.logger = logger or get_logger()
         self.templates = self._initialize_templates()
@@ -89,7 +88,6 @@ class SummaryModel:
         n_trades = len(trade_history)
         total_return = performance.get('total_return', 0.0)
         avg_profit = performance.get('avg_profit', 0.0)
-        
         if total_return > 0.1:
             behavior = "aggressive profitable"
         elif total_return > 0:
@@ -98,7 +96,6 @@ class SummaryModel:
             behavior = "cautious"
         else:
             behavior = "loss-making"
-        
         performance_desc = "strong" if total_return > 0.05 else "moderate" if total_return > 0 else "weak"
         risk_tolerance = agent_state.get('risk_tolerance', 0.5)
         risk_desc = "high" if risk_tolerance > 0.7 else "moderate" if risk_tolerance > 0.3 else "low"
