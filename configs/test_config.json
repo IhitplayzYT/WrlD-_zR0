@@ -1,0 +1,10 @@
+{
+  "n_agents": 8,
+  "max_bad_agents": 1,
+  "initial_cash": 12000.0,
+  "episode_day_len": 5,
+  "each_day_movements": 4,
+  "black_box_duration": 3,
+  "black_box_frequency": 10,
+  "debug": true
+}

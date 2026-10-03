@@ -1,0 +1,14 @@
+{
+  "experiment_name": "sim_20261003_154348",
+  "total_steps": 1,
+  "hyperparameters": {
+    "n_agents": 8,
+    "initial_cash": 10000.0,
+    "episode_length": 20,
+    "black_box_duration": 5,
+    "black_box_frequency": 20,
+    "max_bad_agents": 1,
+    "learning_rate": 0.0003
+  },
+  "completed_at": "2026-10-03T15:43:49.738482"
+}

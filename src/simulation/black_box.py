@@ -95,12 +95,15 @@ class LeaderboardEntry:
     reputation_score: float
 
 
+from src.utils.logging import JSONLogger, get_logger, LogCategory
+
 class BlackBoxPredictionSystem:
     """
     Implements sophisticated prediction contests with market mechanisms.
     """
     
-    def __init__(self,duration: int = 5,frequency: int = 20,min_confidence: float = 0.3,require_explanation: bool = True,enable_prediction_market: bool = True):
+    def __init__(self, duration: int = 5, frequency: int = 20, min_confidence: float = 0.3, require_explanation: bool = True, enable_prediction_market: bool = True, logger: Optional[JSONLogger] = None):
+        self.logger = logger or get_logger()
         self.duration = duration
         self.frequency = frequency
         self.min_confidence = min_confidence

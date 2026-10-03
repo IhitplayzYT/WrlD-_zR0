@@ -33,6 +33,8 @@ class AgentTimeRestriction:
     adjustment_history: List[Tuple[int, int]] = field(default_factory=list)  # History of window adjustments
 
 
+from src.utils.logging import JSONLogger, get_logger, LogCategory
+
 class TimeManager:
     """
     - Timestamp-based agent access restrictions
@@ -40,7 +42,8 @@ class TimeManager:
     - Rare agent blocking/killing events
     """
     
-    def __init__(self,day_duration_seconds: float = 90.0,movements_per_day: int = 10,black_box_duration: int = 5,black_box_frequency: int = 20,max_agents: int = 20,enable_dynamic_adjustment: bool = True,enable_market_sessions: bool = True,timezone: TimeZone = TimeZone.EST):
+    def __init__(self, day_duration_seconds: float = 90.0, movements_per_day: int = 10, black_box_duration: int = 5, black_box_frequency: int = 20, max_agents: int = 20, enable_dynamic_adjustment: bool = True, enable_market_sessions: bool = True, timezone: TimeZone = TimeZone.EST, logger: Optional[JSONLogger] = None):
+        self.logger = logger or get_logger()
         self.day_duration_seconds = day_duration_seconds
         self.movements_per_day = movements_per_day
         self.black_box_duration = black_box_duration

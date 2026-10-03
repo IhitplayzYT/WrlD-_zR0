@@ -1,0 +1,112 @@
+{
+  "n_agents": 10,
+  "initial_cash": 10000.0,
+  "episode_length": 50,
+  "black_box_duration": 5,
+  "black_box_frequency": 20,
+  "max_bad_agents": 2,
+  "final_results": {
+    "agent_0": {
+      "cash": 7430.329737952836,
+      "holdings": {
+        "AAPL": 114
+      },
+      "total_value": 9885.506101271683,
+      "profit": -114.49389872831671,
+      "is_bad": true
+    },
+    "agent_1": {
+      "cash": 10000.0,
+      "holdings": {},
+      "total_value": 10000.0,
+      "profit": 0.0,
+      "is_bad": true
+    },
+    "agent_2": {
+      "cash": 10000.0,
+      "holdings": {},
+      "total_value": 10000.0,
+      "profit": 0.0,
+      "is_bad": false
+    },
+    "agent_3": {
+      "cash": 10000.0,
+      "holdings": {},
+      "total_value": 10000.0,
+      "profit": 0.0,
+      "is_bad": false
+    },
+    "agent_4": {
+      "cash": 10000.0,
+      "holdings": {},
+      "total_value": 10000.0,
+      "profit": 0.0,
+      "is_bad": false
+    },
+    "agent_5": {
+      "cash": 10000.0,
+      "holdings": {},
+      "total_value": 10000.0,
+      "profit": 0.0,
+      "is_bad": false
+    },
+    "agent_6": {
+      "cash": 10000.0,
+      "holdings": {},
+      "total_value": 10000.0,
+      "profit": 0.0,
+      "is_bad": false
+    },
+    "agent_7": {
+      "cash": 10000.0,
+      "holdings": {},
+      "total_value": 10000.0,
+      "profit": 0.0,
+      "is_bad": false
+    },
+    "agent_8": {
+      "cash": 10000.0,
+      "holdings": {},
+      "total_value": 10000.0,
+      "profit": 0.0,
+      "is_bad": false
+    },
+    "agent_9": {
+      "cash": 10000.0,
+      "holdings": {},
+      "total_value": 10000.0,
+      "profit": 0.0,
+      "is_bad": false
+    }
+  },
+  "total_steps": 3,
+  "performance_metrics": {
+    "total_return": -0.0011449389872830729,
+    "annualized_return": -0.1442623123976653,
+    "sharpe_ratio": -1.1386363469959437,
+    "sortino_ratio": -1.1386363469959437,
+    "calmar_ratio": -1.000000000000013,
+    "max_drawdown": 0.001144938987283058,
+    "max_drawdown_duration": 3,
+    "volatility": 0.000572469493641529,
+    "downside_deviation": 0.0,
+    "var_95": -0.001087692037918905,
+    "cvar_95": -0.001144938987283058,
+    "beta": 0.0,
+    "alpha": 0.0,
+    "win_rate": 0.0,
+    "profit_factor": 0.0,
+    "avg_win": 0.0,
+    "avg_loss": -0.001144938987283058,
+    "largest_win": 0.0,
+    "largest_loss": -0.001144938987283058,
+    "total_trades": 0,
+    "avg_trade_duration": 0.0,
+    "turnover_rate": 0.0,
+    "avg_slippage": 0.0,
+    "market_impact": 0.0,
+    "liquidity_consumption": 0.0,
+    "prediction_accuracy": 0.0,
+    "prediction_calibration": 0.0
+  }
+}

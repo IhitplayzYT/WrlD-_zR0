@@ -1,0 +1,101 @@
+===============================================================================
+WrlD-_zR0: Synthetic RL Market Simulation - CLI Usage & Command Syntax Guide
+===============================================================================
+
+SYNTAX OVERVIEW
+---------------
+python3 src/main.py [OPTIONS]
+
+AVAILABLE COMMAND-LINE ARGUMENTS (CLARGS)
+----------------------------------------
+
+1. GENERAL & ENVIRONMENT OPTIONS:
+   -h, --help
+       Displays the built-in manual and CLI usage syntax.
+
+   -d, --debug
+       Enables debug-level JSON logging in ./logs/simulation.jsonl.
+
+   -c=FILE, --config=FILE
+       Path to a JSON or YAML configuration file to load hyperparameters.
+       Example: python3 src/main.py -c=configs/config.json
+
+   -gui, --gui
+       Launches the graphical user interface dashboard instead of head-less CLI mode.
+
+2. AGENT & POPULATION OPTIONS:
+   -n=N, --n_agents=N
+       Specifies total number of trading agents in the simulation (Default: 5).
+       Example: python3 src/main.py -n=10
+
+   -m_bad=M, --max_bad=M
+       Maximum number of adversarial agents. Automatically capped at 20% of total
+       agents (0.2 * N) to enforce the market stability constraint. (Default: 1).
+       Example: python3 src/main.py -n=10 -m_bad=2
+
+   -lr=RATE, --learning_rate=RATE
+       Learning rate for RL / RLAIF policy updates. (Default: 0.0003).
+
+3. SIMULATION & DURATION OPTIONS:
+   -l_ep=DAYS, --episode_len=DAYS
+       Length of each simulation episode in trading days (Default: 200).
+
+   -e_mov=MOV, --everyday_movement=MOV
+       Intra-day price updates / ticks per day (Default: 10).
+       Total step count = episode_len * everyday_movement.
+
+   -m_ep=COUNT, --max_episode=COUNT
+       Maximum number of episodes generated or augmented from dataset (Default: 100).
+
+   -amnt=CASH, --initial_amnt=CASH
+       Starting cash budget for each agent (Default: 10000.0).
+
+4. STOCK DATA & MULTI-ASSET OPTIONS:
+   -stock=SYMBOL:PATH, --stock_data=SYMBOL:PATH
+       Pass a file path (CSV, XLSX, PDF, TXT) to populate price movements for a ticker symbol.
+       Can be used multiple times for multi-stock simulations.
+       Example:
+           python3 src/main.py -stock=AAPL:data/aapl.csv -stock=GOOG:data/goog.csv
+
+5. BLACK BOX & CONTEST OPTIONS:
+   -bb_dur=STEPS, --bbox_duration=STEPS
+       Duration in steps for Black Box prediction contests (Default: 5).
+
+   -bb_freq=STEPS, --bbox_frequency=STEPS
+       Frequency in steps between Black Box contests (Default: 20).
+
+   -rng_bbox=(MIN_DUR,MAX_DUR,MIN_FREQ,MAX_FREQ)
+       Randomly samples Black Box duration and frequency within specified bounds.
+       Example: python3 src/main.py -rng_bbox=(3,8,15,30)
+
+6. EVENT & SHOCK OPTIONS:
+   -event=FILE, --event=FILE
+       Path to a custom JSON file defining market events.
+
+   -p_good=PROB, --prob_good=PROB
+       Probability weighting for positive market events (Default: 0.8).
+
+   -p_bad=PROB, --prob_bad=PROB
+       Probability weighting for negative market events (Default: 0.2).
+
+   -p_crit=PROB, --prob_critical=PROB
+       Criticality threshold for market shocks (Default: 0.01).
+
+7. TRAINING PIPELINE OPTIONS:
+   -trainer, --enable_trainer
+       Enables curriculum learning and experience replay training pipeline.
+
+EXAMPLE COMMAND INVOCATIONS
+---------------------------
+Standard run:
+    python3 src/main.py
+
+Debug mode with 10 agents and 2 adversarial agents:
+    python3 src/main.py -d -n=10 -m_bad=2
+
+Multi-stock simulation with short episode length:
+    python3 src/main.py -stock=AAPL:data/aapl.csv -stock=TSLA:data/tsla.csv -l_ep=50 -e_mov=5
+
+Using a JSON configuration file:
+    python3 src/main.py -c=config.json -d
+===============================================================================

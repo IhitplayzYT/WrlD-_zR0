@@ -21,9 +21,12 @@ class Summary:
     generated_at: datetime = field(default_factory=datetime.now)
 
 
+from src.utils.logging import JSONLogger, get_logger, LogCategory
+
 class SummaryModel:
     """ Generate summaries and commentary seen ONLY BY THE USER """
-    def __init__(self):
+    def __init__(self, logger: Optional[JSONLogger] = None):
+        self.logger = logger or get_logger()
         self.templates = self._initialize_templates()
         self.patterns = self._initialize_patterns()
     

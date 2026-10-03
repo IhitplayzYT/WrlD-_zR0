@@ -1,14 +1,13 @@
-from src.utils.logging import JSONLogger
+from src.utils.logging import JSONLogger, get_logger, LogCategory
 from dataclasses import dataclass
-from typing import Dict, List, Optional,Tuple 
+from typing import Dict, List, Optional, Tuple, Any 
 import numpy as np
 import torch
 from pathlib import Path
 import json
 from datetime import datetime
 from collections import deque
-from environment.market_env import MarketEnvironment
-from src.utils.logging import LogCategory
+from src.environment.market_env import MarketEnvironment
 from src.tracking.experiment import ExperimentTracker
 
 EPS = 1e-8
@@ -26,17 +25,17 @@ class TrainingLevel:
     thresh: float = 0.5
 
 class TrainingScheduler:
-    def __init__(self, mx_lvl: int = 4,logger: JSONLogger = JSONLogger()):
+    def __init__(self, mx_lvl: int = 4, logger: Optional[JSONLogger] = None):
         self.mx_lvl = mx_lvl
         self.curr_lvl_idx = 0
         self.lvl_hist: List[int] = []
         self.performance: List[float] = []
-        self.logger = logger
+        self.logger = logger or get_logger()
         self.lvls = [
-            TrainingLevel(0,0.3,0.3,0.2,1,50,1.0,"Minimal events",0.5),
-            TrainingLevel(1,0.5,0.5,0.4,2,30,1.15,"Moderate events and volatility",0.65),
-            TrainingLevel(2,0.7,0.7,0.6,3,20,1.2,"Complex events with adversarial agents",0.8),
-            TrainingLevel(3,1.0,1.0,0.8,4,15,1.4,"Full complexity with all features",0.95),
+            TrainingLevel(0, 0.3, 0.3, 0.2, 1, 50, 1.0, "Minimal events", 0.5),
+            TrainingLevel(1, 0.5, 0.5, 0.4, 2, 30, 1.15, "Moderate events and volatility", 0.65),
+            TrainingLevel(2, 0.7, 0.7, 0.6, 3, 20, 1.2, "Complex events with adversarial agents", 0.8),
+            TrainingLevel(3, 1.0, 1.0, 0.8, 4, 15, 1.4, "Full complexity with all features", 0.95),
         ]
     
     def get_curr_lvl(self) -> TrainingLevel:
@@ -51,7 +50,7 @@ class TrainingScheduler:
             self.performance.pop(0)
             l -= 1
         if l >= window:
-            return np.mean(self.performance) > self.lvls[self.curr_lvl_idx].thresh
+            return float(np.mean(self.performance)) > self.lvls[self.curr_lvl_idx].thresh
         return False
     
     def progress(self):
@@ -92,24 +91,27 @@ class ExperienceReplay:
     def __init__(self, cap: int, prioritized: bool = True):
         self.cap = cap 
         self.is_priority = prioritized
-        self.buff = deque(cap)
-        self.priorities = deque(cap) if prioritized else None
+        self.buff: deque = deque(maxlen=cap)
+        self.priorities: Optional[deque] = deque(maxlen=cap) if prioritized else None
     
-    def add(self,obs: Dict,action: np.ndarray,reward: float,next_obs: Dict,is_done: bool=False,priority: Optional[float] = None):
-        self.buffer.append((obs, action, reward, next_obs, is_done))
-        if self.is_priority:
+    def add(self, obs: Dict, action: np.ndarray, reward: float, next_obs: Dict, is_done: bool = False, priority: Optional[float] = None):
+        self.buff.append((obs, action, reward, next_obs, is_done))
+        if self.is_priority and self.priorities is not None:
             if priority is None:
                 priority = abs(reward)
-            self.buff.append(priority)
             self.priorities.append(priority)
         
     def sample(self, sz: int) -> List[Tuple]:
-        if self.is_priority and len(self.buff) > 0:
-            priorities = np.array(self.priorities)
+        if not self.buff:
+            return []
+        if self.is_priority and self.priorities and len(self.buff) > 0:
+            priorities = np.array(self.priorities, dtype=np.float64)
             probs = priorities / (priorities.sum() + EPS)
-            return [self.buff[i] for i in np.random.choice(len(self.buff), sz,p=probs)]
+            indices = np.random.choice(len(self.buff), min(sz, len(self.buff)), p=probs)
+            return [self.buff[i] for i in indices]
         else:
-            return [self.buff[i] for i in np.random.choice(len(self.buff), min(sz, len(self.buff)))]
+            indices = np.random.choice(len(self.buff), min(sz, len(self.buff)))
+            return [self.buff[i] for i in indices]
     
     def __len__(self):
         return len(self.buff)
@@ -117,23 +119,23 @@ class ExperienceReplay:
 
 class TrainingPipeline:
 
-    def __init__(self, config: TrainConf,logger: JSONLogger = JSONLogger()):
+    def __init__(self, config: TrainConf, logger: Optional[JSONLogger] = None):
         Path(config.checkpoint_dir).mkdir(parents=True, exist_ok=True)
         Path(config.log_dir).mkdir(parents=True, exist_ok=True)
 
         self.conf = config
-        self.logger = logger
-        self.scheduler = TrainingScheduler() if config.use_trainer else None
-        self.replay_buff = ExperienceReplay(config.replay_buff_sz,config.prioritize_replay) if config.use_experience_replay else None
+        self.logger = logger or get_logger()
+        self.scheduler = TrainingScheduler(logger=self.logger) if config.use_trainer else None
+        self.replay_buff = ExperienceReplay(config.replay_buff_sz, config.prioritize_replay) if config.use_experience_replay else None
         self.curr_ep = 0
-        self.ep_reward = []
-        self.ep_len = []
-        self.performance = {}
-        self.env = None
-        self.train_log = []
+        self.ep_reward: List[float] = []
+        self.ep_len: List[int] = []
+        self.performance: Dict[str, List[float]] = {}
+        self.env: Optional[MarketEnvironment] = None
+        self.train_log: List[Dict] = []
         self.start_time = datetime.now()
 
-        self.exp_tracker = ExperimentTracker(config.log_dir,f"training_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+        self.exp_tracker = ExperimentTracker(config.log_dir, f"training_{datetime.now().strftime('%Y%m%d_%H%M%S')}", logger=self.logger)
         self.exp_tracker.log_hyperparameters(config.__dict__)
     
     def create_environment(self, train_lvl: Optional[TrainingLevel] = None) -> MarketEnvironment:
@@ -143,68 +145,94 @@ class TrainingPipeline:
         if train_lvl:
             n_types = train_lvl.n_agent
             agent_types = ["rlaif"] * (self.conf.n_agents - 1)
-            if n_types >= 2 and self.conf.adversarial_training:
+            if n_types >= 2 and getattr(self.conf, 'adversial_train', True):
                 agent_types[-1] = "adversarial" 
         else:
             agent_types = ["rlaif"] * self.conf.n_agents
-        return MarketEnvironment(self.conf.n_agents,self.conf.mx_bad_agents,self.conf.init_cash,self.conf.episode_len,price_data,train_lvl.black_box_frequency if train_lvl else 20,5,True,agent_types)
+        return MarketEnvironment(
+            n_agents=self.conf.n_agents,
+            max_bad_agents=self.conf.mx_bad_agents,
+            initial_cash=self.conf.init_cash,
+            episode_length=self.conf.episode_len,
+            price_data=price_data,
+            black_box_frequency=train_lvl.bbox_freq if train_lvl else 20,
+            black_box_duration=5,
+            use_enhanced_observation=True,
+            agent_types=agent_types,
+            logger=self.logger
+        )
     
-    def _gen_price_data(self, train_lvl: Optional[TrainingLevel]) -> List[float]:
+    def _gen_price_data(self, train_lvl: Optional[TrainingLevel]) -> Dict[str, List[float]]:
         volatility = 0.01 if train_lvl is None else train_lvl.volatility * 0.03
         n_steps = self.conf.episode_len * 10
         prices = [100.0]
         for _ in range(n_steps - 1):
             prices.append(max(prices[-1] * (1 + np.random.normal(0, volatility)), 1.0))
-        return prices
+        return {"ASSET0": prices}
 
-    def train_episode(self, env: MarketEnvironment) -> Dict[str, float]:
+    def train_episode(self, env: MarketEnvironment) -> Dict[str, Any]:
         obs, infos = env.reset()
-        episode_reward = 1.0
+        episode_reward = 0.0
         episode_len = 0
         agent_rewards = {agent_id: 0.0 for agent_id in env.agents}
         done = False
         while not done:
-            agent = env.agent_selection
-            agent_obj = env.agent_objects[agent]
-            action = agent_obj.decide_action(obs[agent], env.action_space)
-            o_obs = obs[agent].copy()
-            n_obs, reward, terminated, truncated, info = env.step(action)
+            actions = {}
+            for agent_id in env.agents:
+                agent_obj = env.agent_objects[agent_id]
+                actions[agent_id] = agent_obj.decide_action(obs[agent_id], env.action_space)
+            
+            n_obs, rewards, terminated, truncated, info = env.step(actions)
             done = terminated or truncated
-            episode_reward += reward
-            agent_rewards[agent] += reward
             episode_len += 1
+            for agent_id, r in rewards.items():
+                episode_reward += r
+                agent_rewards[agent_id] += r
 
             if self.replay_buff:
-                self.replay_buff.add(o_obs,action,reward,n_obs[agent],done,priority=abs(reward) if self.conf.prioritize_replay else None)
+                first_agent = env.agents[0]
+                self.replay_buff.add(
+                    obs[first_agent], actions[first_agent], rewards[first_agent],
+                    n_obs[first_agent], done, priority=abs(rewards[first_agent]) if self.conf.prioritize_replay else None
+                )
             obs = n_obs 
         
-        for id, reward in agent_rewards.items():
-            if id not in self.performance:
-                self.performance[id] = []
-            self.performance[id].append(reward)
+        for agent_id, reward in agent_rewards.items():
+            if agent_id not in self.performance:
+                self.performance[agent_id] = []
+            self.performance[agent_id].append(reward)
 
         if self.scheduler:
             curriculum_level = self.scheduler.get_curr_lvl()
             episode_reward *= curriculum_level.rwrd_scale
 
-        return {'episode_reward': episode_reward,'episode_length': episode_len,'agent_rewards': agent_rewards,'average_agent_reward': np.mean(list(agent_rewards.values()))}
+        return {
+            'episode_reward': episode_reward,
+            'episode_length': episode_len,
+            'agent_rewards': agent_rewards,
+            'average_agent_reward': float(np.mean(list(agent_rewards.values())))
+        }
     
     def evaluate(self, env: MarketEnvironment, n_episodes: int = 5) -> Dict[str, float]:
-        eval_rewards,eval_lengths = [],[]
+        eval_rewards, eval_lengths = [], []
         for _ in range(n_episodes):
             obs, infos = env.reset()
-            episode_reward,episode_length,done = 0.0,0,False
+            episode_reward, episode_length, done = 0.0, 0, False
             while not done:
-                agent = env.agent_selection
-                agent_obj = env.agent_objects[agent]
-                action = agent_obj.decide_action(obs[agent], env.action_space)
-                obs, reward, terminated, truncated, info = env.step(action)
-                episode_reward += reward
+                actions = {agent_id: env.agent_objects[agent_id].decide_action(obs[agent_id], env.action_space) for agent_id in env.agents}
+                obs, rewards, terminated, truncated, info = env.step(actions)
+                episode_reward += sum(rewards.values())
                 episode_length += 1
                 done = terminated or truncated
             eval_rewards.append(episode_reward)
             eval_lengths.append(episode_length)
-        return {'mean_reward': np.mean(eval_rewards),'std_reward': np.std(eval_rewards),'mean_length': np.mean(eval_lengths),'max_reward': np.max(eval_rewards),'min_reward': np.min(eval_rewards)}
+        return {
+            'mean_reward': float(np.mean(eval_rewards)),
+            'std_reward': float(np.std(eval_rewards)),
+            'mean_length': float(np.mean(eval_lengths)),
+            'max_reward': float(np.max(eval_rewards)),
+            'min_reward': float(np.min(eval_rewards))
+        }
     
     def train(self):
         self.logger.info(LogCategory.TRAINING, f"Starting training for {self.conf.n_episodes} episodes", data={'n_episodes': self.conf.n_episodes, 'curriculum_learning': self.conf.use_trainer, 'experience_replay': self.conf.use_experience_replay})
@@ -214,10 +242,10 @@ class TrainingPipeline:
             ep_metrics = self.train_episode(self.env)
             self.ep_reward.append(ep_metrics['episode_reward'])
             self.ep_len.append(ep_metrics['episode_length'])
-            if not episode % self.conf.log_freq:
+            if self.conf.log_freq > 0 and episode % self.conf.log_freq == 0:
                 self.LOG(episode, ep_metrics)
             
-            if episode % self.conf.eval_freq == 0 and episode > 0:
+            if self.conf.eval_freq > 0 and episode % self.conf.eval_freq == 0 and episode > 0:
                 eval_metrics = self.evaluate(self.env, n_episodes=3)
                 self._log_evaluation(episode, eval_metrics)
                 
@@ -225,32 +253,57 @@ class TrainingPipeline:
                     avg_performance = eval_metrics['mean_reward']
                     if self.scheduler.should_progress(avg_performance):
                         self.scheduler.progress()
-                        # Recreate environment with new curriculum level
                         self.env = self.create_environment()
             
-            if episode % self.conf.save_freq == 0 and episode > 0:
+            if self.conf.save_freq > 0 and episode % self.conf.save_freq == 0 and episode > 0:
                 self._save_checkpoint(episode)
         
         self._save_checkpoint(self.conf.n_episodes)
         self._save_training_log()
         self.logger.info(LogCategory.TRAINING, "Training completed")
-        self._print_summary()
+        self.summary()
     
     def LOG(self, episode: int, metrics: Dict[str, float]):
-        avg_reward = np.mean(self.ep_reward[-self.conf.log_freq:])
-        avg_length = np.mean(self.ep_reward[-self.conf.log_freq:])
-        log_entry = {'episode': episode,'episode_reward': metrics['episode_reward'],'episode_length': metrics['episode_length'],'average_reward': avg_reward,'average_length': avg_length,'curriculum_level': self.scheduler.get_curr_lvl() if self.scheduler else 0,'timestamp': datetime.now().isoformat()}
+        window = max(1, self.conf.log_freq)
+        avg_reward = float(np.mean(self.ep_reward[-window:]))
+        avg_length = float(np.mean(self.ep_len[-window:]))
+        log_entry = {
+            'episode': episode,
+            'episode_reward': metrics['episode_reward'],
+            'episode_length': metrics['episode_length'],
+            'average_reward': avg_reward,
+            'average_length': avg_length,
+            'curriculum_level': self.scheduler.get_curr_lvl().lvl if self.scheduler else 0,
+            'timestamp': datetime.now().isoformat()
+        }
         self.train_log.append(log_entry)
         self.logger.info(LogCategory.TRAINING, f"Episode {episode} progress", data={'episode': episode, 'reward': metrics['episode_reward'], 'avg_reward': avg_reward, 'length': metrics['episode_length'], 'curriculum_level': log_entry['curriculum_level']})
-        self.exp_tracker.log_metrics({'episode_reward': metrics['episode_reward'],'average_reward': avg_reward,'episode_length': metrics['episode_length'],'curriculum_level': log_entry['curriculum_level']}, step=episode)
+        self.exp_tracker.log_metrics({
+            'episode_reward': metrics['episode_reward'],
+            'average_reward': avg_reward,
+            'episode_length': metrics['episode_length'],
+            'curriculum_level': log_entry['curriculum_level']
+        }, step=episode)
     
     def _log_evaluation(self, episode: int, metrics: Dict[str, float]):
         self.logger.info(LogCategory.EVALUATION, f"Evaluation at episode {episode}", data={'episode': episode, 'mean_reward': metrics['mean_reward'], 'std_reward': metrics['std_reward'], 'max_reward': metrics['max_reward']})
-        self.exp_tracker.log_metrics({f'eval_mean_reward': metrics['mean_reward'],f'eval_std_reward': metrics['std_reward'],f'eval_max_reward': metrics['max_reward'],f'eval_min_reward': metrics['min_reward']}, step=episode)
+        self.exp_tracker.log_metrics({
+            'eval_mean_reward': metrics['mean_reward'],
+            'eval_std_reward': metrics['std_reward'],
+            'eval_max_reward': metrics['max_reward'],
+            'eval_min_reward': metrics['min_reward']
+        }, step=episode)
     
     def _save_checkpoint(self, episode: int):
         checkpoint_path = Path(self.conf.checkpoint_dir) / f"checkpoint_ep{episode}.pt"
-        checkpoint = {'episode': episode,'episode_rewards': self.ep_reward,'episode_lengths': self.ep_len,'agent_performances': self.performance,'curriculum_level': self.scheduler.get_curr_lvl() if self.scheduler else 0,'config': self.conf.__dict__}
+        checkpoint = {
+            'episode': episode,
+            'episode_rewards': self.ep_reward,
+            'episode_lengths': self.ep_len,
+            'agent_performances': self.performance,
+            'curriculum_level': self.scheduler.get_curr_lvl().lvl if self.scheduler else 0,
+            'config': self.conf.__dict__
+        }
         if self.env:
             agent_models = {}
             for agent_id, agent in self.env.agent_objects.items():
@@ -261,16 +314,25 @@ class TrainingPipeline:
             checkpoint['agent_models'] = agent_models
         
         torch.save(checkpoint, checkpoint_path)
-        self.logger.info(LogCategory.TRAINING, f"Saved checkpoint", data={'episode': episode, 'checkpoint_path': str(checkpoint_path)})
+        self.logger.info(LogCategory.TRAINING, "Saved checkpoint", data={'episode': episode, 'checkpoint_path': str(checkpoint_path)})
     
     def _save_training_log(self):
         log_path = Path(self.conf.log_dir) / "training_log.json"
         with open(log_path, 'w') as f:
             json.dump(self.train_log, f, indent=2)
-        self.logger.info(LogCategory.TRAINING, f"Saved training log", data={'log_path': str(log_path)})
+        self.logger.info(LogCategory.TRAINING, "Saved training log", data={'log_path': str(log_path)})
     
-    def sumamry(self):
-        summary_data = {'total_episodes': self.curr_ep + 1,'average_reward': float(np.mean(self.ep_reward)),'max_reward': float(np.max(self.ep_reward)),'min_reward': float(np.min(self.ep_reward)),'average_episode_length': float(np.mean(self.ep_len)),'final_curriculum_level': self.scheduler.get_curr_lvl() if self.scheduler else 0,'level_progression': self.scheduler.lvl_hist if self.scheduler else [],'training_duration': str(datetime.now() - self.start_time)}
+    def summary(self):
+        summary_data = {
+            'total_episodes': self.curr_ep + 1,
+            'average_reward': float(np.mean(self.ep_reward)) if self.ep_reward else 0.0,
+            'max_reward': float(np.max(self.ep_reward)) if self.ep_reward else 0.0,
+            'min_reward': float(np.min(self.ep_reward)) if self.ep_reward else 0.0,
+            'average_episode_length': float(np.mean(self.ep_len)) if self.ep_len else 0.0,
+            'final_curriculum_level': self.scheduler.get_curr_lvl().lvl if self.scheduler else 0,
+            'level_progression': self.scheduler.lvl_hist if self.scheduler else [],
+            'training_duration': str(datetime.now() - self.start_time)
+        }
         self.logger.info(LogCategory.TRAINING, "Training Summary", data=summary_data)
         self.exp_tracker.log_summary(summary_data)
         self.exp_tracker.finish()

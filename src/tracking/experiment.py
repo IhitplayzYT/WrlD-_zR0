@@ -1,14 +1,13 @@
-from src.utils.logging import JSONLogger
+from src.utils.logging import JSONLogger, get_logger, LogCategory
 from typing import Dict, Optional, Any
 from pathlib import Path
 import json
 from datetime import datetime
-from src.utils.logging import LogCategory
 
 class ExperimentTracker:
-    def __init__(self, log_dir: str = "./logs", exp_name: Optional[str] = None,logger: JSONLogger=JSONLogger()):
+    def __init__(self, log_dir: str = "./logs", exp_name: Optional[str] = None, logger: Optional[JSONLogger] = None):
         self.log_dir = Path(log_dir)
-        self.logger = logger
+        self.logger = logger or get_logger()
         self.exp_name = exp_name or f"exp_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         self.exp_dir = self.log_dir / self.exp_name
         self.exp_dir.mkdir(parents=True, exist_ok=True)
@@ -31,7 +30,11 @@ class ExperimentTracker:
             json.dump(summary, f, indent=2, default=str)
     
     def finish(self):
-        with open(self.exp_name / "final_state.json", 'w') as f:
-            json.dump({'experiment_name': self.exp_name,'total_steps': len(self.metrics_log),'hyperparameters': self.hyperparams,'completed_at': datetime.now().isoformat()}, f, indent=2)
+        with open(self.exp_dir / "final_state.json", 'w') as f:
+            json.dump({
+                'experiment_name': self.exp_name,
+                'total_steps': len(self.metrics_log),
+                'hyperparameters': self.hyperparams,
+                'completed_at': datetime.now().isoformat()
+            }, f, indent=2)
         self.logger.info(LogCategory.SYSTEM, f"Experiment '{self.exp_dir}' completed", data={'experiment_dir': str(self.exp_dir)})
-

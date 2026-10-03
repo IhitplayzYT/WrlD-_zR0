@@ -17,7 +17,6 @@ class Order:
     quantity: int
     timestamp: float = field(default_factory=time.time)
 
-    # Priority according to price 
     def __lt__(self, other: 'Order') -> bool:
         if self.side == OrderSide.BUY:
             return self.price > other.price if self.price != other.price else self.timestamp < other.timestamp
@@ -25,7 +24,7 @@ class Order:
             return self.price < other.price if self.price != other.price else self.timestamp < other.timestamp
     
     def __eq__(self, other: 'Order') -> bool:
-        return self.id == other.id
+        return isinstance(other, Order) and self.id == other.id
 
 @dataclass
 class Trade:
@@ -38,8 +37,8 @@ class Trade:
 class OrderBook:
     def __init__(self):
         self._order_counter = 0
-        self.bids: SortedDict[float, SortedList] = SortedDict(lambda k: -k)
-        self.asks: SortedDict[float, SortedList] = SortedDict()
+        self.bids: SortedDict = SortedDict(lambda k: -k)
+        self.asks: SortedDict = SortedDict()
         self.order_map: Dict[str, Order] = {} 
         self.trades: List[Trade] = []
         
@@ -49,7 +48,7 @@ class OrderBook:
     
     def add_order(self, agent_id: str, side: OrderSide, price: float, quantity: int) -> str:
         order_id = self._generate_order_id()
-        order = Order(order_id,agent_id,side,price,quantity)
+        order = Order(order_id, agent_id, side, price, quantity)
         self.order_map[order_id] = order
 
         if side == OrderSide.BUY:
@@ -85,14 +84,13 @@ class OrderBook:
     def _match_orders(self) -> List[Trade]:
         new_trades = []
         while self.bids and self.asks:
-            best_bid_price,best_ask_price = self.bids.keys()[0],self.asks.keys()[0] 
-            # There is a buyer willing to pay the highest ask
+            best_bid_price, best_ask_price = self.bids.keys()[0], self.asks.keys()[0] 
             if best_bid_price >= best_ask_price:
                 best_bid = self.bids[best_bid_price][0]
                 best_ask = self.asks[best_ask_price][0]
                 trade_price = (best_bid_price + best_ask_price) * 0.5
                 trade_quantity = min(best_bid.quantity, best_ask.quantity)
-                trade = Trade(buy_order_id=best_bid.id,sell_order_id=best_ask.id,price=trade_price,quantity=trade_quantity)
+                trade = Trade(buy_order_id=best_bid.id, sell_order_id=best_ask.id, price=trade_price, quantity=trade_quantity)
                 new_trades.append(trade)
                 self.trades.append(trade)                
                 best_bid.quantity -= trade_quantity
@@ -130,13 +128,13 @@ class OrderBook:
         return (best_price, sum(o.quantity for o in self.asks[best_price]))
     
     def get_spread(self) -> Optional[float]:
-        best_bid,best_ask = self.get_best_bid(),self.get_best_ask()
+        best_bid, best_ask = self.get_best_bid(), self.get_best_ask()
         if best_bid is None or best_ask is None:
             return None
         return best_ask[0] - best_bid[0]
     
     def get_mid_price(self) -> Optional[float]:
-        best_bid,best_ask = self.get_best_bid(),self.get_best_ask()
+        best_bid, best_ask = self.get_best_bid(), self.get_best_ask()
         if best_bid is None or best_ask is None:
             return None
         return (best_bid[0] + best_ask[0]) * 0.5
@@ -144,23 +142,24 @@ class OrderBook:
     def get_market_depth(self, depth: int = 5) -> Dict:
         bid_levels = []
         ask_levels = []
-        bid_prices = {}
-        ask_prices = {}
+        bid_prices: Dict[float, int] = {}
+        ask_prices: Dict[float, int] = {}
 
-        for order in self.bids[:depth * 10]:  # Get more orders to aggregate(AI suggested to use 10 as a factor)
-            bid_prices[order.price] = bid_prices.get(order.price,0) + order.quantity
-        for order in self.asks[:depth * 10]:
-            ask_prices[order.price] = ask_prices.get(order.price,0) + order.quantity
+        for price in list(self.bids.keys())[:depth * 10]:
+            for order in self.bids[price]:
+                bid_prices[order.price] = bid_prices.get(order.price, 0) + order.quantity
+        for price in list(self.asks.keys())[:depth * 10]:
+            for order in self.asks[price]:
+                ask_prices[order.price] = ask_prices.get(order.price, 0) + order.quantity
 
         for price in sorted(bid_prices.keys(), reverse=True)[:depth]:
-            bid_levels.append({'price': price,'quantity': bid_prices[price]})
-        for price in  sorted(ask_prices.keys())[:depth]:
-            ask_levels.append({'price': price,'quantity': ask_prices[price]})
+            bid_levels.append({'price': price, 'quantity': bid_prices[price]})
+        for price in sorted(ask_prices.keys())[:depth]:
+            ask_levels.append({'price': price, 'quantity': ask_prices[price]})
         
-        return {'bids': bid_levels,'asks': ask_levels,'spread': self.get_spread(),'mid_price': self.get_mid_price()}
+        return {'bids': bid_levels, 'asks': ask_levels, 'spread': self.get_spread(), 'mid_price': self.get_mid_price()}
     
     def calculate_price_impact(self, quantity: int, side: OrderSide) -> float:
-        """ Returns the expected slippage in price units """
         if side == OrderSide.BUY:
             remaining_qty = quantity
             total_cost = 0.0
@@ -205,7 +204,7 @@ class OrderBook:
             return current_mid - avg_price
     
     def get_order_book_state(self) -> Dict:
-        bid_list,ask_list = [],[]
+        bid_list, ask_list = [], []
         for i, price in enumerate(self.bids.keys()):
             if i >= 10:
                 break
@@ -224,10 +223,20 @@ class OrderBook:
                     break
             if len(ask_list) >= 10:
                 break
-        return {'bids': bid_list,'asks': ask_list,'best_bid': self.get_best_bid(),'best_ask': self.get_best_ask(),'spread': self.get_spread(),'mid_price': self.get_mid_price(),'total_bid_volume': sum(sum(o.quantity for o in orders) for orders in self.bids.values()),'total_ask_volume': sum(sum(o.quantity for o in orders) for orders in self.asks.values()),'num_trades': len(self.trades)}
+        return {
+            'bids': bid_list,
+            'asks': ask_list,
+            'best_bid': self.get_best_bid(),
+            'best_ask': self.get_best_ask(),
+            'spread': self.get_spread(),
+            'mid_price': self.get_mid_price(),
+            'total_bid_volume': sum(sum(o.quantity for o in orders) for orders in self.bids.values()),
+            'total_ask_volume': sum(sum(o.quantity for o in orders) for orders in self.asks.values()),
+            'num_trades': len(self.trades)
+        }
     
     def get_recent_trades(self, limit: int = 10) -> List[Dict]:
-        return [{'price': t.price,'quantity': t.quantity,'timestamp': t.timestamp,'buy_order_id': t.buy_order_id,'sell_order_id': t.sell_order_id} for t in (self.trades[-limit:] if self.trades else [])]
+        return [{'price': t.price, 'quantity': t.quantity, 'timestamp': t.timestamp, 'buy_order_id': t.buy_order_id, 'sell_order_id': t.sell_order_id} for t in (self.trades[-limit:] if self.trades else [])]
     
     def reset(self):
         self.bids.clear()
@@ -235,4 +244,3 @@ class OrderBook:
         self.order_map.clear()
         self.trades.clear()
         self._order_counter = 0
-

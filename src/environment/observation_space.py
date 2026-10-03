@@ -24,17 +24,21 @@ class RegimeDetection:
     volatility_threshold: float = 0.02
     trend_threshold: float = 0.01
     
-    def detect_regime(self, price_history: List[float]) -> Tuple[Regime, float]:
+    def detect_regime(self, price_history: Any) -> Tuple[Regime, float]:
         """ Returns (regime, confidence_score) """
-        if len(price_history) < self.lookback_window:
+        prices_arr = np.asarray(price_history, dtype=np.float64)
+        if prices_arr.ndim == 2:
+            prices_arr = prices_arr[:, 0]
+            
+        if len(prices_arr) < self.lookback_window:
             return Regime.SIDEWAYS, 0.5
-        recent_prices = np.array(price_history[-self.lookback_window:])
-        returns = np.diff(recent_prices) / recent_prices[:-1]
+            
+        recent_prices = prices_arr[-self.lookback_window:]
+        returns = np.diff(recent_prices) / np.maximum(recent_prices[:-1], 1e-5)
         
-        mean_return = np.mean(returns)
-        volatility = np.std(returns)
+        mean_return = float(np.mean(returns))
+        volatility = float(np.std(returns))
         
-        # Determine regime based on statistics
         if volatility > self.volatility_threshold * 3:
             if mean_return < -self.trend_threshold * 2:
                 return Regime.CRASH, 0.8
@@ -50,14 +54,17 @@ class RegimeDetection:
         else:
             return Regime.SIDEWAYS, 0.5
     
-    def detect_trend(self, price_history: List[float]) -> Tuple[Trend, float]:
-        """ Detect current trend using dual moving average crossover, Returns (trend, confidence_score) """
-        if len(price_history) < 20:
+    def detect_trend(self, price_history: Any) -> Tuple[Trend, float]:
+        """ Detect current trend using dual moving average crossover """
+        prices_arr = np.asarray(price_history, dtype=np.float64)
+        if prices_arr.ndim == 2:
+            prices_arr = prices_arr[:, 0]
+            
+        if len(prices_arr) < 20:
             return Trend.NEUTRAL, 0.5
-        prices = np.array(price_history)
-        # Calculate moving averages
-        ma_short = np.mean(prices[-5:])
-        ma_long = np.mean(prices[-20:])
+            
+        ma_short = float(np.mean(prices_arr[-5:]))
+        ma_long = float(np.mean(prices_arr[-20:]))
         
         if ma_short > ma_long * 1.01:
             return Trend.UPTREND, 0.7
@@ -70,39 +77,39 @@ class RegimeDetection:
 class TemporalFeatureExtractor(nn.Module):
     """
     GRU/LSTM-based temporal feature extraction for price sequences.
-    Based on research: LSTM-augmented DQN for quantitative trading in partially observable markets.
     """
     
-    def __init__(self,input_size: int = 1,hidden_size: int = 64,num_layers: int = 2,dropout: float = 0.1,use_gru: bool = True):
+    def __init__(self, input_size: int = 1, hidden_size: int = 64, num_layers: int = 2, dropout: float = 0.1, use_gru: bool = True):
         super().__init__()
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         
         if use_gru:
-            self.rnn = nn.GRU(input_size,hidden_size,num_layers,batch_first=True,dropout=dropout if num_layers > 1 else 0)
+            self.rnn = nn.GRU(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout if num_layers > 1 else 0)
         else:
-            self.rnn = nn.LSTM(input_size,hidden_size,num_layers,batch_first=True,dropout=dropout if num_layers > 1 else 0)
+            self.rnn = nn.LSTM(input_size, hidden_size, num_layers, batch_first=True, dropout=dropout if num_layers > 1 else 0)
 
-       # Decoders 
         self.price_predictor = nn.Linear(hidden_size, 1)
         self.regime_classifier = nn.Linear(hidden_size, 5)
         self.volatility_predictor = nn.Linear(hidden_size, 1)
         
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
-        """ x shape: (batch_size, sequence_length, input_size) """
         rnn_out, hidden = self.rnn(x)
-        # Use the last output for predictions
         last_output = rnn_out[:, -1, :]
-        return {'hidden_state': last_output,'price_prediction': self.price_predictor(last_output),'regime_logits': self.regime_classifier(last_output),'volatility_prediction': self.volatility_predictor(last_output)}
+        return {
+            'hidden_state': last_output,
+            'price_prediction': self.price_predictor(last_output),
+            'regime_logits': self.regime_classifier(last_output),
+            'volatility_prediction': self.volatility_predictor(last_output)
+        }
     
-    def extract_features(self, price_sequence: List[float]) -> np.ndarray:
-        """
-        Extract temporal features from price sequence.
-        Returns hidden state representation.
-        """
+    def extract_features(self, price_sequence: Any) -> np.ndarray:
         self.eval()
         with torch.no_grad():
-            x = torch.tensor(price_sequence, dtype=torch.float32).unsqueeze(0).unsqueeze(-1)
+            seq = np.asarray(price_sequence, dtype=np.float32)
+            if seq.ndim == 2:
+                seq = seq[:, 0]
+            x = torch.tensor(seq, dtype=torch.float32).unsqueeze(0).unsqueeze(-1)
             outputs = self.forward(x)
             return outputs['hidden_state'].squeeze(0).cpu().numpy()
 
@@ -117,19 +124,18 @@ class ImplementationShortfall:
     remaining_shares: int = 0
     
     def calculate_shortfall(self) -> float:
-        """ Positive = worse than arrival price, Negative = better than arrival price """
         if self.executed_shares == 0:
             return 0.0
         avg_executed_price = self.executed_price / self.executed_shares
 
         if avg_executed_price > self.arrival_price:
-            shortfall = (avg_executed_price - self.arrival_price) / self.arrival_price
+            shortfall = (avg_executed_price - self.arrival_price) / max(1e-5, self.arrival_price)
         else:
-            shortfall = (self.arrival_price - avg_executed_price) / self.arrival_price
+            shortfall = (self.arrival_price - avg_executed_price) / max(1e-5, self.arrival_price)
         return shortfall
     
     def calculate_price_divergence(self, current_best_bid: float, current_best_ask: float, is_buy: bool) -> float:
-        return  self.arrival_price - current_best_ask if is_buy else current_best_bid - self.arrival_price
+        return self.arrival_price - current_best_ask if is_buy else current_best_bid - self.arrival_price
 
 
 @dataclass
@@ -157,7 +163,7 @@ class BeliefState:
         for regime in all_regimes:
             belief_vector.append(self.regime_beliefs.get(regime, 0.2))
 
-        belief_vector.extend([self.trend_belief,self.volatility_belief,self.liquidity_belief])
+        belief_vector.extend([self.trend_belief, self.volatility_belief, self.liquidity_belief])
         return np.array(belief_vector, dtype=np.float32)
 
 
@@ -171,11 +177,11 @@ class EnhancedObservationSpace:
         self.regime_detector = RegimeDetection()
         self.belief_state = BeliefState()
         self.implementation_shortfall = ImplementationShortfall()
-        self.temporal_extractor = TemporalFeatureExtractor(input_size=1,hidden_size=64,num_layers=2,use_gru=True) if use_temporal_features else None
+        self.temporal_extractor = TemporalFeatureExtractor(input_size=1, hidden_size=64, num_layers=2, use_gru=True) if use_temporal_features else None
         
         self.observation_history = []
     
-    def create_observation(self,base_observation: Dict[str, Any],agent_state: Dict[str, Any],market_state: Dict[str, Any]) -> Dict[str, Any]:
+    def create_observation(self, base_observation: Dict[str, Any], agent_state: Dict[str, Any], market_state: Dict[str, Any]) -> Dict[str, Any]:
         enhanced_obs = base_observation.copy()
         price_history = base_observation.get('price_history', [])
         regime, regime_confidence = self.regime_detector.detect_regime(price_history)
@@ -205,13 +211,14 @@ class EnhancedObservationSpace:
         if self.implementation_shortfall.arrival_price == 0.0:
             self.implementation_shortfall.arrival_price = current_price
         
-        is_buying = agent_state.get('holdings', 0) > 0
+        holdings = agent_state.get('holdings', {})
+        is_buying = (sum(holdings.values()) if isinstance(holdings, dict) else int(holdings)) > 0
         price_divergence = self.implementation_shortfall.calculate_price_divergence(best_bid, best_ask, is_buying)
         enhanced_obs['price_divergence'] = price_divergence
         shortfall = self.implementation_shortfall.calculate_shortfall()
         enhanced_obs['implementation_shortfall'] = shortfall
         enhanced_obs['market_condition'] = self._calculate_market_condition(price_history, market_state)
-        enhanced_obs['remaining_shares'] = agent_state.get('holdings', 0)
+        enhanced_obs['remaining_shares'] = sum(holdings.values()) if isinstance(holdings, dict) else int(holdings)
         enhanced_obs['agent_cash_ratio'] = agent_state.get('cash', 1000.0) / max(1.0, agent_state.get('total_value', 1000.0))
         
         self.observation_history.append(enhanced_obs.copy())
@@ -220,37 +227,62 @@ class EnhancedObservationSpace:
         
         return enhanced_obs
     
-    def _calculate_market_condition(self,price_history: List[float],market_state: Dict[str, Any]) -> float:
-        if len(price_history) < 10:
+    def _calculate_market_condition(self, price_history: Any, market_state: Dict[str, Any]) -> float:
+        prices_arr = np.asarray(price_history, dtype=np.float64)
+        if prices_arr.ndim == 2:
+            prices_arr = prices_arr[:, 0]
+            
+        if len(prices_arr) < 10:
             return 0.5
         
-        recent_prices = np.array(price_history[-10:])
-        returns = np.diff(recent_prices) / recent_prices[:-1]
+        recent_prices = prices_arr[-10:]
+        returns = np.diff(recent_prices) / np.maximum(recent_prices[:-1], 1e-5)
         
-        volatility = np.std(returns)
+        volatility = float(np.std(returns))
         volatility_score = max(0.0, min(1.0, 1.0 - volatility / 0.05))
         
-        mean_return = np.mean(returns)
+        mean_return = float(np.mean(returns))
         trend_score = max(0.0, min(1.0, 0.5 + mean_return * 10))
         
         spread = market_state.get('spread')
         if spread is None:
             liquidity_score = 0.5
         else:
-            liquidity_score = max(0.0, min(1.0, 1.0 - spread / 0.05))
+            liquidity_score = max(0.0, min(1.0, 1.0 - float(spread) / 0.05))
         
-        return  (volatility_score * 0.4 + trend_score * 0.4 + liquidity_score * 0.2)
+        return (volatility_score * 0.4 + trend_score * 0.4 + liquidity_score * 0.2)
     
     def get_observation_space_size(self) -> Dict[str, Tuple]:
-        sizes = {'price_history': (50,),'order_book_bids': (10, 2),'order_book_asks': (10, 2),'agent_cash': (),'agent_holdings': (),'agent_total_value': (),'is_black_box': (),'current_price': (),'market_cap': (),'active_events': (10,)}
+        sizes = {
+            'price_history': (50,),
+            'order_book_bids': (10, 2),
+            'order_book_asks': (10, 2),
+            'agent_cash': (),
+            'agent_holdings': (),
+            'agent_total_value': (),
+            'is_black_box': (),
+            'current_price': (),
+            'market_cap': (),
+            'active_events': (10,)
+        }
         
         if self.use_belief_states:
-            sizes['belief_state'] = (8,)  # 5 regimes + 3 other beliefs
+            sizes['belief_state'] = (8,)
         
         if self.use_temporal_features:
-            sizes['temporal_features'] = (64,)  # Hidden state size
+            sizes['temporal_features'] = (64,)
         
-        sizes.update({'current_regime': (),'regime_confidence': (),'current_trend': (),'trend_confidence': (),'price_divergence': (),'implementation_shortfall': (),'market_condition': (),'remaining_shares': (),'agent_cash_ratio': ()})
+        sizes.update({
+            'current_regime': (),
+            'regime_confidence': (),
+            'current_trend': (),
+            'trend_confidence': (),
+            'price_divergence': (),
+            'implementation_shortfall': (),
+            'market_condition': (),
+            'remaining_shares': (),
+            'agent_cash_ratio': ()
+        })
         return sizes
     
     def reset(self):
@@ -259,13 +291,12 @@ class EnhancedObservationSpace:
         self.observation_history = []
 
 
-def create_enhanced_observation_space(use_temporal_features: bool = True,use_belief_states: bool = True,pretrained_model_path: Optional[str] = None) -> EnhancedObservationSpace:
-    obs_space = EnhancedObservationSpace(use_temporal_features=use_temporal_features,use_belief_states=use_belief_states)
-    
+def create_enhanced_observation_space(use_temporal_features: bool = True, use_belief_states: bool = True, pretrained_model_path: Optional[str] = None) -> EnhancedObservationSpace:
+    obs_space = EnhancedObservationSpace(use_temporal_features=use_temporal_features, use_belief_states=use_belief_states)
     if pretrained_model_path and obs_space.temporal_extractor is not None:
         try:
             obs_space.temporal_extractor.load_state_dict(torch.load(pretrained_model_path))
             obs_space.temporal_extractor.eval()
-        except Exception as e:
+        except Exception:
             pass
     return obs_space

@@ -36,13 +36,17 @@ class PerformanceMetrics:
     def to_dict(self) -> Dict[str, float]:
         return {'total_return': self.tot_ret,'annualized_return': self.annualize_ret,'sharpe_ratio': self.sharpe_r,'sortino_ratio': self.sortino_r,'calmar_ratio': self.calmar_r,'max_drawdown': self.mx_drwdwn,'max_drawdown_duration': self.mx_drwdwn_dur,'volatility': self.volatility,'downside_deviation': self.down_dev,'var_95': self.var_95,'cvar_95': self.cvar_95,'beta': self.beta,'alpha': self.alpha,'win_rate': self.win_rate,'profit_factor': self.profit_factor,'avg_win': self.avg_win,'avg_loss': self.avg_loss,'largest_win': self.largest_win,'largest_loss': self.largest_loss,'total_trades': self.tot_trades,'avg_trade_duration': self.avg_trade_dur,'turnover_rate': self.turnover_r,'avg_slippage': self.avg_slippage,'market_impact': self.market_impact,'liquidity_consumption': self.liquidity_usage,'prediction_accuracy': self.predict_acc,'prediction_calibration': self.predict_calib}
 
+from src.utils.logging import JSONLogger, get_logger
+
 class MetricsCalculator:
-    def __init__(self, risk_free_rate: float = 0.02):
+    def __init__(self, risk_free_rate: float = 0.02, logger: Optional[JSONLogger] = None):
         self.rfr = risk_free_rate
+        self.logger = logger or get_logger()
     
-    def calculate_metrics(self,returns: List[float],portfolio_values: List[float],market_returns: Optional[List[float]] = None,trades: Optional[List[Dict]] = None,predictions: Optional[List[Dict]] = None) -> PerformanceMetrics:
+    def calculate_metrics(self, returns: List[float], portfolio_values: List[float], market_returns: Optional[List[float]] = None, trades: Optional[List[Dict]] = None, predictions: Optional[List[Dict]] = None) -> PerformanceMetrics:
         metrics = PerformanceMetrics()
-        metrics.tot_ret = (portfolio_values[-1] / portfolio_values[0]) - 1
+        if portfolio_values and len(portfolio_values) > 1 and portfolio_values[0] != 0:
+            metrics.tot_ret = (portfolio_values[-1] / portfolio_values[0]) - 1
         metrics.annualize_ret = self._calculate_annualized_return(returns)
         metrics.volatility = np.std(returns) if returns else 0.0
         metrics.sharpe_r = self._calculate_sharpe_ratio(returns)
@@ -93,8 +97,11 @@ class MetricsCalculator:
         excess_returns = np.array(returns) - (self.rfr / TRADING_DAYS)
         downside_returns = excess_returns[excess_returns < 0]
         if len(downside_returns) == 0:
-            return float('inf')
-        return np.mean(excess_returns) / np.std(downside_returns)
+            return 0.0
+        std_downside = np.std(downside_returns)
+        if std_downside == 0:
+            return 0.0
+        return float(np.mean(excess_returns) / std_downside)
     
     def _calculate_calmar_ratio(self, portfolio_values: List[float]) -> float:
         if not portfolio_values:

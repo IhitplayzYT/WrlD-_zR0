@@ -116,7 +116,7 @@ class MarketEvent:
         return self.check_conditions(market_state)
 
 class EventManager:
-    def __init__(self,load_default: bool):
+    def __init__(self, load_default: bool = True):
         self.events: List[MarketEvent] = []
         self._event_counter = 0
         if load_default:
@@ -156,7 +156,7 @@ class EventManager:
         sorted_events = sorted(self.events, key=lambda e: e.priority, reverse=True)
         for event in sorted_events:
             if event.can_trigger(market_state):
-                if random.random() < event.probability:
+                if random.random() < (event.probability * 0.5):
                     event.activate()
     
     def trigger_event(self, event_id: int, market_state: Dict) -> bool:

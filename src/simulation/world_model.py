@@ -233,9 +233,12 @@ class ExplanatoryWorldModel:
         return explanation
 
 
+from src.utils.logging import JSONLogger, get_logger, LogCategory
+
 class WorldModel:
     
-    def __init__(self,state_dim: int,action_dim: int,max_delay: int = 10,use_dynamics: bool = True,use_reward_model: bool = True,use_delay_aware: bool = True,use_explanatory: bool = True):
+    def __init__(self, state_dim: int, action_dim: int, max_delay: int = 10, use_dynamics: bool = True, use_reward_model: bool = True, use_delay_aware: bool = True, use_explanatory: bool = True, logger: Optional[JSONLogger] = None):
+        self.logger = logger or get_logger()
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.max_delay = max_delay

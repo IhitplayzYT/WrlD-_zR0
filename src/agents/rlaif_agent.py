@@ -1,19 +1,16 @@
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, Tuple
+from src.utils.logging import JSONLogger, get_logger, LogCategory
+from dataclasses import dataclass 
+from typing import Dict, Optional, Any 
 import numpy as np
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from stable_baselines3 import PPO, SAC
-from stable_baselines3.common.vec_env import DummyVecEnv
-from stable_baselines3.common.callbacks import BaseCallback
+try:
+    from stable_baselines3 import PPO, SAC
+    from stable_baselines3.common.vec_env import DummyVecEnv
+    HAS_SB3 = True
+except ImportError:
+    HAS_SB3 = False
+
 import random
-
-from .base_agent import BaseAgent, AgentTraits, AgentType, AgentState
-from src.utils.logging import get_logger, LogCategory
-
-logger = get_logger()
-
+from .base_agent import BaseAgent, AgentTraits, AgentType 
 
 @dataclass
 class PreferenceModel:
@@ -31,25 +28,14 @@ class PreferenceModel:
         action: np.ndarray,
         state: Dict[str, Any],
         context: Dict[str, Any]
-    ) -> float:
-        """
-        Evaluate an action based on multiple principles and return combined score.
-        """
+    ) -> tuple[float, dict[str, float]]:
         scores = {}
         
-        # Profitability score
         scores['profitability'] = self._evaluate_profitability(action, state, context)
-        
-        # Risk score
         scores['risk'] = self._evaluate_risk(action, state, context)
-        
-        # Market impact score
         scores['market_impact'] = self._evaluate_market_impact(action, state, context)
-        
-        # Consistency score
         scores['consistency'] = self._evaluate_consistency(action, state, context)
         
-        # Combine scores using weights
         total_score = (
             scores['profitability'] * self.profitability_weight +
             scores['risk'] * self.risk_weight +
@@ -60,58 +46,51 @@ class PreferenceModel:
         return total_score, scores
     
     def _evaluate_profitability(self, action: np.ndarray, state: Dict, context: Dict) -> float:
-        """Evaluate potential profitability of action"""
-        # Simple heuristic: buy low, sell high
-        current_price = state.get('current_price', 100.0)
-        price_history = state.get('price_history', [])
+        current_price = 100.0
+        if 'current_price' in state:
+            cp = state['current_price']
+            current_price = cp[0] if isinstance(cp, (list, np.ndarray)) and len(cp) > 0 else float(cp)
         
+        price_history = state.get('price_history', [])
         if len(price_history) < 5:
             return 0.5
         
-        recent_trend = (price_history[-1] - price_history[-5]) / price_history[-5]
+        recent_trend = (price_history[-1] - price_history[-5]) / price_history[-5] if isinstance(price_history[-1], (int, float)) else 0.0
         action_type = int(action[0])
         
-        if action_type in [1, 3]:  # Buy actions
-            # Good to buy if trend is positive
-            return max(0.0, min(1.0, 0.5 + recent_trend * 10))
-        elif action_type in [2, 4]:  # Sell actions
-            # Good to sell if trend is negative
-            return max(0.0, min(1.0, 0.5 - recent_trend * 10))
+        if action_type in [1, 3]:  # Buy
+            return max(0.0, min(1.0, 0.5 + float(np.mean(recent_trend)) * 10))
+        elif action_type in [2, 4]:  # Sell
+            return max(0.0, min(1.0, 0.5 - float(np.mean(recent_trend)) * 10))
         else:  # Hold
             return 0.5
     
     def _evaluate_risk(self, action: np.ndarray, state: Dict, context: Dict) -> float:
-        """Evaluate riskiness of action"""
         action_type = int(action[0])
-        quantity = int(action[1])
-        cash = state.get('agent_cash', 1000.0)
+        quantity = int(action[2]) if len(action) > 2 else 1
+        price = float(action[3]) if len(action) > 3 else 100.0
+        cash = float(state.get('agent_cash', 1000.0))
         
         if action_type in [1, 3]:  # Buy actions
-            # Higher quantity = higher risk
-            position_size = (quantity * action[2]) / cash if cash > 0 else 1.0
+            position_size = (quantity * price) / cash if cash > 0 else 1.0
             return max(0.0, min(1.0, 1.0 - position_size))
         elif action_type in [2, 4]:  # Sell actions
-            # Selling is generally lower risk
             return 0.7
         else:  # Hold
-            return 0.9  # Holding is low risk
+            return 0.9
     
     def _evaluate_market_impact(self, action: np.ndarray, state: Dict, context: Dict) -> float:
-        """Evaluate market impact of action"""
-        quantity = int(action[1])
+        quantity = int(action[2]) if len(action) > 2 else 1
         order_book_depth = context.get('order_book_depth', 1000)
         
-        # Lower market impact is better
         impact = quantity / order_book_depth if order_book_depth > 0 else 1.0
         return max(0.0, min(1.0, 1.0 - impact))
     
     def _evaluate_consistency(self, action: np.ndarray, state: Dict, context: Dict) -> float:
-        """Evaluate consistency with agent's historical behavior"""
         history = context.get('action_history', [])
         if len(history) < 3:
             return 0.5
         
-        # Check if action is consistent with recent actions
         recent_actions = [int(h[0]) for h in history[-3:]]
         current_action_type = int(action[0])
         
@@ -128,10 +107,11 @@ class RLAIFAgent(BaseAgent):
     def __init__(
         self,
         agent_id: str,
+        logger: Optional[JSONLogger] = None,
         initial_cash: float = 1000.0,
         traits: Optional[AgentTraits] = None,
         rl_algorithm: str = "PPO",
-        curriculum_level: int = 0
+        curriculum_level: int = 0,
     ):
         super().__init__(
             agent_id=agent_id,
@@ -139,23 +119,19 @@ class RLAIFAgent(BaseAgent):
             initial_cash=initial_cash,
             traits=traits
         )
-        
+        self.logger = logger or get_logger()
         self.rl_algorithm = rl_algorithm
         self.curriculum_level = curriculum_level
         
-        # Preference model for AI feedback
         self.preference_model = PreferenceModel()
         
-        # RL model (will be initialized when environment is available)
         self.rl_model = None
         self.model_initialized = False
         
-        # Training state
         self.training_step = 0
         self.episode_rewards = []
         self.action_history = []
         
-        # Curriculum learning parameters
         self.curriculum_thresholds = {
             0: {'max_complexity': 0.3, 'event_frequency': 0.5},
             1: {'max_complexity': 0.5, 'event_frequency': 0.7},
@@ -164,86 +140,68 @@ class RLAIFAgent(BaseAgent):
         }
     
     def initialize_rl_model(self, env):
-        """
-        Initialize the RL model with the given environment.
-        This should be called once the environment is available.
-        """
-        if self.model_initialized:
+        if self.model_initialized or not HAS_SB3:
             return
         
-        # Create vectorized environment
-        vec_env = DummyVecEnv([lambda: env])
-        
-        # Initialize RL algorithm
-        if self.rl_algorithm == "PPO":
-            self.rl_model = PPO(
-                "MlpPolicy",
-                vec_env,
-                learning_rate=3e-4,
-                n_steps=2048,
-                batch_size=64,
-                n_epochs=10,
-                gamma=0.99,
-                gae_lambda=0.95,
-                clip_range=0.2,
-                verbose=0
-            )
-        elif self.rl_algorithm == "SAC":
-            self.rl_model = SAC(
-                "MlpPolicy",
-                vec_env,
-                learning_rate=3e-4,
-                buffer_size=100000,
-                batch_size=256,
-                gamma=0.99,
-                verbose=0
-            )
-        
-        self.model_initialized = True
+        try:
+            vec_env = DummyVecEnv([lambda: env])
+            if self.rl_algorithm == "PPO":
+                self.rl_model = PPO(
+                    "MlpPolicy",
+                    vec_env,
+                    learning_rate=3e-4,
+                    n_steps=2048,
+                    batch_size=64,
+                    n_epochs=10,
+                    gamma=0.99,
+                    gae_lambda=0.95,
+                    clip_range=0.2,
+                    verbose=0
+                )
+            elif self.rl_algorithm == "SAC":
+                self.rl_model = SAC(
+                    "MlpPolicy",
+                    vec_env,
+                    learning_rate=3e-4,
+                    buffer_size=100000,
+                    batch_size=256,
+                    gamma=0.99,
+                    verbose=0
+                )
+            self.model_initialized = True
+        except Exception as e:
+            self.logger.warning(LogCategory.AGENT, f"Could not initialize SB3 model for {self.agent_id}: {e}")
+            self.model_initialized = False
     
     def decide_action(
         self,
         observation: Dict[str, Any],
         action_space: Any
     ) -> np.ndarray:
-        """
-        Decide action using RL policy with AI feedback integration.
-        """
-        # Process observation based on traits
         processed_obs = self.process_observation(observation)
         
-        if self.model_initialized and self.rl_model is not None:
-            # Use RL policy to get action
-            # Convert observation to format expected by RL model
+        if self.model_initialized and self.rl_model is not None and HAS_SB3:
             obs_array = self._obs_to_array(processed_obs)
-            
             try:
                 action, _ = self.rl_model.predict(obs_array, deterministic=False)
-                # Convert action to expected format [action_type, quantity, price]
                 formatted_action = self._format_rl_action(action, observation)
-            except Exception as e:
-                # Fallback to trait-based action if RL fails
+            except Exception:
                 formatted_action = self._trait_based_action(processed_obs, action_space)
         else:
-            # Use trait-based action if model not initialized
             formatted_action = self._trait_based_action(processed_obs, action_space)
         
-        # Apply trait modifications
         modified_action = self.apply_trait_modifications(formatted_action)
         
-        # Get AI feedback on the action
         ai_feedback_score, component_scores = self.preference_model.evaluate_action(
             modified_action,
             observation,
             {'action_history': self.action_history}
         )
         
-        # Store action for history
         self.action_history.append(modified_action.copy())
         if len(self.action_history) > 50:
             self.action_history.pop(0)
         
-        # Store feedback in memory
         self.state.add_memory({
             'action': modified_action.copy(),
             'ai_feedback_score': ai_feedback_score,
@@ -253,37 +211,32 @@ class RLAIFAgent(BaseAgent):
         
         self.state.last_action = {
             'type': int(modified_action[0]),
-            'quantity': int(modified_action[1]),
-            'price': float(modified_action[2]),
+            'asset_idx': int(modified_action[1]),
+            'quantity': int(modified_action[2]),
+            'price': float(modified_action[3]),
             'ai_feedback_score': ai_feedback_score
         }
         
         return modified_action
     
     def _obs_to_array(self, observation: Dict[str, Any]) -> np.ndarray:
-        """Convert observation dictionary to numpy array for RL model"""
         obs_array = []
         
-        # Price history: (50, 10) - flatten to 500
         if 'price_history' in observation:
             price_hist = observation['price_history']
-            if price_hist.ndim == 2:
+            if isinstance(price_hist, np.ndarray):
                 obs_array.extend(price_hist.flatten())
+            elif isinstance(price_hist, list):
+                obs_array.extend(price_hist + [0.0] * (500 - len(price_hist)))
             else:
-                # Handle old format for backward compatibility
-                obs_array.extend(list(price_hist) + [0.0] * (500 - len(price_hist)))
+                obs_array.extend([0.0] * 500)
         else:
             obs_array.extend([0.0] * 500)
         
-        # Order book state: (10, 10, 2) - flatten to 200 each
         if 'order_book_bids' in observation:
             bids = observation['order_book_bids']
-            if bids.ndim == 3:
+            if isinstance(bids, np.ndarray):
                 obs_array.extend(bids.flatten())
-            elif bids.ndim == 2:
-                # Handle old format for backward compatibility
-                obs_array.extend(bids.flatten())
-                obs_array.extend([0.0] * (200 - bids.size))
             else:
                 obs_array.extend([0.0] * 200)
         else:
@@ -291,199 +244,179 @@ class RLAIFAgent(BaseAgent):
         
         if 'order_book_asks' in observation:
             asks = observation['order_book_asks']
-            if asks.ndim == 3:
+            if isinstance(asks, np.ndarray):
                 obs_array.extend(asks.flatten())
-            elif asks.ndim == 2:
-                # Handle old format for backward compatibility
-                obs_array.extend(asks.flatten())
-                obs_array.extend([0.0] * (200 - asks.size))
             else:
                 obs_array.extend([0.0] * 200)
         else:
             obs_array.extend([0.0] * 200)
         
-        # Agent state
-        obs_array.append(observation.get('agent_cash', 1000.0))
+        obs_array.append(float(observation.get('agent_cash', 1000.0)))
         
-        # Multi-asset holdings (10 assets)
         if 'agent_holdings' in observation:
-            obs_array.extend(observation['agent_holdings'])
+            holdings = observation['agent_holdings']
+            if isinstance(holdings, np.ndarray):
+                obs_array.extend(holdings)
+            else:
+                obs_array.extend([0.0] * 10)
         else:
             obs_array.extend([0.0] * 10)
         
-        obs_array.append(observation.get('agent_total_value', 1000.0))
+        obs_array.append(float(observation.get('agent_total_value', 1000.0)))
+        obs_array.append(float(observation.get('is_black_box', 0)))
         
-        # Market state
-        obs_array.append(observation.get('is_black_box', 0))
-        
-        # Multi-asset prices (10 assets)
         if 'current_price' in observation:
-            obs_array.extend(observation['current_price'])
+            cp = observation['current_price']
+            if isinstance(cp, np.ndarray):
+                obs_array.extend(cp)
+            else:
+                obs_array.extend([100.0] * 10)
         else:
             obs_array.extend([100.0] * 10)
         
-        # Multi-asset market caps (10 assets)
         if 'market_cap' in observation:
-            obs_array.extend(observation['market_cap'])
+            mc = observation['market_cap']
+            if isinstance(mc, np.ndarray):
+                obs_array.extend(mc)
+            else:
+                obs_array.extend([1000000.0] * 10)
         else:
             obs_array.extend([1000000.0] * 10)
         
-        # Events
         if 'active_events' in observation:
-            obs_array.extend(observation['active_events'])
+            ev = observation['active_events']
+            if isinstance(ev, np.ndarray):
+                obs_array.extend(ev)
+            else:
+                obs_array.extend([0.0] * 10)
         else:
             obs_array.extend([0.0] * 10)
         
-        # Available assets one-hot
         if 'available_assets' in observation:
-            obs_array.extend(observation['available_assets'])
+            aa = observation['available_assets']
+            if isinstance(aa, np.ndarray):
+                obs_array.extend(aa)
+            else:
+                obs_array.extend([1.0] + [0.0] * 9)
         else:
             obs_array.extend([1.0] + [0.0] * 9)
         
         return np.array(obs_array, dtype=np.float32)
     
     def _format_rl_action(self, rl_action: np.ndarray, observation: Dict) -> np.ndarray:
-        """Format RL action to expected [action_type, asset_idx, quantity, price] format"""
-        # This is a simplified conversion - in practice, you'd need to handle
-        # the specific action space of your RL algorithm
-        action_type = int(abs(rl_action[0]) % 5)  # Ensure valid action type
-        asset_idx = int(abs(rl_action[1]) % 10)  # Ensure valid asset index (max 10)
-        quantity = int(abs(rl_action[2]) % 100) + 1  # Ensure positive quantity
+        action_type = int(abs(rl_action[0]) % 5)
+        asset_idx = int(abs(rl_action[1]) % 10) if len(rl_action) > 1 else 0
+        quantity = int(abs(rl_action[2]) % 100) + 1 if len(rl_action) > 2 else 10
         
-        # Get current price for the selected asset
         current_prices = observation.get('current_price', [100.0] * 10)
-        current_price = current_prices[asset_idx] if asset_idx < len(current_prices) else 100.0
-        price = current_price * (1 + (rl_action[3] * 0.1))  # Price around current
+        if isinstance(current_prices, np.ndarray) and len(current_prices) > asset_idx:
+            current_price = float(current_prices[asset_idx])
+        else:
+            current_price = 100.0
         
+        price = current_price * (1 + (rl_action[3] * 0.1)) if len(rl_action) > 3 else current_price
         return np.array([action_type, asset_idx, quantity, price], dtype=np.float32)
     
     def _trait_based_action(self, observation: Dict, action_space: Any) -> np.ndarray:
-        """Generate action based on traits when RL model is not available"""
         modifiers = self.traits.get_behavior_modifiers()
         
-        # Base action on traits and observation
         available_assets = observation.get('available_assets', [1.0] + [0.0] * 9)
-        asset_idx = int(np.argmax(available_assets))  # Select first available asset
+        if isinstance(available_assets, np.ndarray):
+            asset_idx = int(np.argmax(available_assets))
+        else:
+            asset_idx = 0
         
         current_prices = observation.get('current_price', [100.0] * 10)
-        current_price = current_prices[asset_idx] if asset_idx < len(current_prices) else 100.0
+        if isinstance(current_prices, np.ndarray) and len(current_prices) > asset_idx:
+            current_price = float(current_prices[asset_idx])
+        elif isinstance(current_prices, list) and len(current_prices) > asset_idx:
+            current_price = float(current_prices[asset_idx])
+        else:
+            current_price = 100.0
+            
         price_history = observation.get('price_history', [])
         
-        # Determine action type based on trend and traits
-        if len(price_history) >= 5:
-            recent_trend = (price_history[-1] - price_history[-5]) / price_history[-5]
+        if len(price_history) >= 5 and isinstance(price_history, np.ndarray) and price_history.ndim == 2:
+            p_slice = price_history[-5:, asset_idx]
+            recent_trend = (p_slice[-1] - p_slice[0]) / max(1e-5, p_slice[0])
             trend_modifier = modifiers['trend_modifier']
             
             if recent_trend > 0.01 and trend_modifier > 0.6:
-                action_type = 1  # Market buy (follow trend)
+                action_type = 1  # Market buy
             elif recent_trend < -0.01 and trend_modifier < 0.4:
-                action_type = 2  # Market sell (contrarian)
+                action_type = 2  # Market sell
             else:
                 action_type = 0  # Hold
         else:
-            action_type = random.choice([0, 1, 2])
+            action_type = random.choice([0, 1, 2, 3, 4])
         
-        # Determine quantity based on risk modifier
         risk_modifier = modifiers['risk_modifier']
         base_quantity = int(10 + risk_modifier * 50)
         quantity = max(1, min(100, base_quantity))
+        price = max(1.0, current_price * (1 + random.uniform(-0.02, 0.02)))
         
-        # Determine price for limit orders
-        price = current_price * (1 + random.uniform(-0.02, 0.02))
-        
-        # Convert to limit order if patient
         if modifiers['patience_modifier'] > 0.7 and action_type in [1, 2]:
-            action_type = action_type + 2  # Convert to limit order
+            action_type = action_type + 2
         
         return np.array([action_type, asset_idx, quantity, price], dtype=np.float32)
     
     def update_state(self, reward: float, done: bool, info: Dict):
-        """Update state and training progress"""
         super().update_state(reward, done, info)
-        
         self.episode_rewards.append(reward)
         self.training_step += 1
-        
-        # Check for curriculum progression
         self._check_curriculum_progression()
     
     def _check_curriculum_progression(self):
-        """Check if agent should progress to next curriculum level"""
         if self.curriculum_level < 3:
             recent_performance = self.state.get_recent_performance(20)
-            threshold = self.curriculum_thresholds[self.curriculum_level]
-            
-            # Progress if performing well at current level
-            if recent_performance > 50:  # Positive performance threshold
+            if recent_performance > 50:
                 self.curriculum_level += 1
-                logger.info(LogCategory.AGENT, f"Agent {self.agent_id} progressed to curriculum level {self.curriculum_level}", data={'agent_id': self.agent_id, 'curriculum_level': self.curriculum_level})
+                self.logger.info(LogCategory.AGENT, f"Agent {self.agent_id} progressed to curriculum level {self.curriculum_level}", data={'agent_id': self.agent_id, 'curriculum_level': self.curriculum_level})
     
     def train_step(self, env, n_steps: int = 1000):
-        """
-        Perform training steps on the RL model.
-        """
+        if not HAS_SB3:
+            return
         if not self.model_initialized or self.rl_model is None:
             self.initialize_rl_model(env)
         
         try:
-            self.rl_model.learn(n_steps)
-            self.training_step += n_steps
+            if self.rl_model:
+                self.rl_model.learn(n_steps)
+                self.training_step += n_steps
         except Exception as e:
-            logger.error(LogCategory.AGENT, f"Training error for agent {self.agent_id}", data={'agent_id': self.agent_id, 'error': str(e)})
+            self.logger.error(LogCategory.AGENT, f"Training error for agent {self.agent_id}", data={'agent_id': self.agent_id, 'error': str(e)})
     
     def get_curriculum_config(self) -> Dict[str, float]:
-        """Get current curriculum configuration"""
         return self.curriculum_thresholds.get(
             self.curriculum_level,
             self.curriculum_thresholds[3]
         )
     
     def save_model(self, path: str):
-        """Save the RL model"""
-        if self.model_initialized and self.rl_model is not None:
+        if HAS_SB3 and self.model_initialized and self.rl_model is not None:
             self.rl_model.save(path)
     
     def load_model(self, path: str, env):
-        """Load the RL model"""
-        if self.rl_algorithm == "PPO":
-            self.rl_model = PPO.load(path, env=DummyVecEnv([lambda: env]))
-        elif self.rl_algorithm == "SAC":
-            self.rl_model = SAC.load(path, env=DummyVecEnv([lambda: env]))
-        
-        self.model_initialized = True
+        if not HAS_SB3:
+            return
+        try:
+            vec_env = DummyVecEnv([lambda: env])
+            if self.rl_algorithm == "PPO":
+                self.rl_model = PPO.load(path, env=vec_env)
+            elif self.rl_algorithm == "SAC":
+                self.rl_model = SAC.load(path, env=vec_env)
+            self.model_initialized = True
+        except Exception as e:
+            self.logger.warning(LogCategory.AGENT, f"Failed to load RL model for {self.agent_id}: {e}")
     
     def get_info(self) -> Dict[str, Any]:
-        """Get extended agent information including RLAIF-specific data"""
         info = super().get_info()
         info.update({
             'rl_algorithm': self.rl_algorithm,
             'curriculum_level': self.curriculum_level,
             'training_step': self.training_step,
             'model_initialized': self.model_initialized,
-            'average_episode_reward': np.mean(self.episode_rewards) if self.episode_rewards else 0.0,
+            'average_episode_reward': float(np.mean(self.episode_rewards)) if self.episode_rewards else 0.0,
             'preference_weights': self.preference_model.__dict__
         })
         return info
-
-
-if __name__ == "__main__":
-    # Test the RLAIF agent
-    agent = RLAIFAgent("test_agent", initial_cash=1000.0)
-    
-    # Create a dummy observation
-    dummy_obs = {
-        'price_history': [100.0 + i * 0.1 for i in range(50)],
-        'order_book_bids': np.zeros((10, 2)),
-        'order_book_asks': np.zeros((10, 2)),
-        'agent_cash': 1000.0,
-        'agent_holdings': 0,
-        'agent_total_value': 1000.0,
-        'is_black_box': 0,
-        'current_price': 105.0,
-        'market_cap': 1000000.0,
-        'active_events': np.zeros(10)
-    }
-    
-    # Test action decision
-    action = agent.decide_action(dummy_obs, None)
-    logger.debug(LogCategory.AGENT, "RLAIF agent test", data={'action': action.tolist(), 'agent_info': agent.get_info()})
