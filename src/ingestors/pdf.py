@@ -3,7 +3,7 @@ from tabulate import tabulate
 import polars as pl
 import re
 
-def extract_pdf(pdf_path: str,describe_image,image_format: str = "png",) -> str:
+def extract_pdf(pdf_path: str,describe_image) -> str:
     """
     Extracts:
       - normal text
@@ -11,20 +11,14 @@ def extract_pdf(pdf_path: str,describe_image,image_format: str = "png",) -> str:
       - images -> describe_image(image_bytes)
     Returns one large string.
     """
-
     doc = fitz.open(pdf_path)
-
     output = []
-
     for page_num, page in enumerate(doc, start=1):
-
         output.append(f"\n# Page {page_num}\n")
         text = page.get_text().strip()
         if text:
             output.append(text)
             output.append("\n")
-
-
         try:
             tables = page.find_tables()
             for idx, table in enumerate(tables.tables, start=1):
@@ -37,7 +31,6 @@ def extract_pdf(pdf_path: str,describe_image,image_format: str = "png",) -> str:
                     output.append("\n")
         except Exception:
             pass
-
         images = page.get_images(full=True)
         for image_idx, image in enumerate(images, start=1):
             xref = image[0]
@@ -48,9 +41,7 @@ def extract_pdf(pdf_path: str,describe_image,image_format: str = "png",) -> str:
     return "\n".join(output)
 
 def ingest_pdf(pdf_path: str) -> pl.DataFrame:
-    """
-    PDF Ingestor - extracts numeric data from tables and returns DataFrame with 'price' column
-    """
+    """ Extracts numeric data from tables and returns DataFrame with 'price' column """
     doc = fitz.open(pdf_path)
     prices = []
     for page in doc:
@@ -61,7 +52,6 @@ def ingest_pdf(pdf_path: str) -> pl.DataFrame:
                 if data and len(data) > 1:
                     for row in data[1:]:
                         for cell in row:
-                            # Try to extract numeric values from cells
                             # Remove currency symbols, commas, etc.
                             cleaned = re.sub(r'[^\d.]', '', str(cell))
                             if cleaned and cleaned.count('.') <= 1:

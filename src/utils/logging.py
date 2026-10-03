@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, Callable
+from typing import Dict, List, Optional, Any 
 from enum import Enum
 import json
 import gzip
@@ -9,6 +9,8 @@ import threading
 from collections import deque
 import re
 
+MAX_FILE_SIZE = 10 * 1024 * 1024
+MAX_FILES = 10
 
 class LogLevel(Enum):
     DEBUG = "debug"
@@ -41,32 +43,12 @@ class LogEntry:
     def to_dict(self) -> Dict[str, Any]:
         return {'timestamp': self.timestamp.isoformat(),'level': self.lvl.value,'category': self.categ.value,'message': self.desc,'data': self.data,'source': self.src,'agent_id': self.agent_id,'episode': self.episode,'step': self.step}
 
-    def from_dict(self,dict: Dict[str,Any]):
-        self.timestamp = dict["timestamp"]
-        self.lvl = dict["level"]
-        self.categ = dict["category"]
-        self.desc = dict["message"]
-        self.data = dict["data"]
-        self.src = dict["source"]
-        self.agent_id = dict["agent_id"]
-        self.episode = dict["episode"]
-        self.step = dict["step"]
-        
-
 class LogFilter:
     def __init__(self):
-        self.level_filter: Optional[LogLevel] = None
-        self.category_filter: Optional[LogCategory] = None
-        self.agent_filter: Optional[str] = None
-        self.time_range: Optional[tuple[datetime, datetime]] = None
-        self.message_pattern: Optional[str] = None
-    
+        self.level_filter = self.category_filter = self.agent_filter = self.time_range = self.message_pattern= None
+
     def matches(self, entry: LogEntry) -> bool:
-        if self.level_filter and entry.level != self.level_filter:
-            return False
-        if self.category_filter and entry.category != self.category_filter:
-            return False
-        if self.agent_filter and entry.agent_id != self.agent_filter:
+        if (self.level_filter and entry.level != self.level_filter) or (self.category_filter and entry.category != self.category_filter) or (self.agent_filter and entry.agent_id != self.agent_filter):
             return False
         if self.time_range:
             st, ed = self.time_range
@@ -78,26 +60,19 @@ class LogFilter:
 
 
 class LogRotator:
-
-    def __init__(self, max_file_size: int = 10 * 1024 * 1024, max_files: int = 10):
+    def __init__(self, max_file_size: int = MAX_FILE_SIZE, max_files: int = MAX_FILES):
         self.max_file_size = max_file_size 
         self.max_files = max_files
     
     def should_rotate(self, log_file: Path) -> bool:
-        if not log_file.exists():
-            return False
-        return log_file.stat().st_size >= self.max_file_size
+        return False if not log_file.exists() else log_file.stat().st_size >= self.max_file_size
     
     def rotate(self, log_file: Path):
         if not log_file.exists():
             return
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        compressed_file = log_file.parent / f"{log_file.stem}_{timestamp}.json.gz"
-
         with open(log_file, 'rb') as f_in:
-            with gzip.open(compressed_file, 'wb') as f_out:
+            with gzip.open(log_file.parent / f"{log_file.stem}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json.gz", 'wb') as f_out:
                 f_out.writelines(f_in)
-        
         log_file.write_text("")
         self._cleanup_old_files(log_file.parent)
     
@@ -112,10 +87,8 @@ class JSONLogger:
         self.log_dir = Path(log_dir)
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self.log_file = self.log_dir / log_file
-
         if not self.log_file.exists():
             self.log_file.write_text("")
-
         self.enable_rotation = enable_rotation
         self.rotator = LogRotator() if enable_rotation else None
         self.enable_compression = enable_compression
@@ -124,9 +97,8 @@ class JSONLogger:
         self.lock = threading.Lock()
     
     def log(self,level: LogLevel,category: LogCategory,message: str,data: Optional[Dict[str, Any]] = None,source: str = "",agent_id: Optional[str] = None,episode: Optional[int] = None,step: Optional[int] = None):
-        ent = LogEntry(datetime.now(),level,category,message,data if data else {},source,agent_id,episode,step)
         with self.lock:
-            self.buffer.append(ent)
+            self.buffer.append(LogEntry(datetime.now(),level,category,message,data if data else {},source,agent_id,episode,step))
             if len(self.buffer) >= self.buffer_size:
                 self.flush()
     

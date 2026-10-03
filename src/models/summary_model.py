@@ -1,10 +1,8 @@
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 from enum import Enum
 from datetime import datetime
-import re
 from collections import Counter
-from src.utils.logging import LogCategory
 
 class SummaryType(Enum):
     MARKET_ACTIVITY = "market_activity"
@@ -13,10 +11,8 @@ class SummaryType(Enum):
     TREND_ANALYSIS = "trend_analysis"
     OVERVIEW = "overview"
 
-
 @dataclass
 class Summary:
-
     summary_type: SummaryType
     content: str
     key_points: List[str] = field(default_factory=list)
@@ -67,15 +63,7 @@ class SummaryModel:
         }
     
     def _initialize_patterns(self) -> Dict[str, List[str]]:
-        """Initialize pattern recognition patterns"""
-        return {
-            'uptrend': ['increasing', 'rising', 'bullish', 'positive'],
-            'downtrend': ['decreasing', 'falling', 'bearish', 'negative'],
-            'high_volatility': ['volatile', 'unstable', 'fluctuating'],
-            'low_volatility': ['stable', 'calm', 'steady'],
-            'high_volume': ['heavy', 'active', 'busy'],
-            'low_volume': ['light', 'thin', 'quiet']
-        }
+        return {'uptrend': ['increasing', 'rising', 'bullish', 'positive'],'downtrend': ['decreasing', 'falling', 'bearish', 'negative'],'high_volatility': ['volatile', 'unstable', 'fluctuating'],'low_volatility': ['stable', 'calm', 'steady'],'high_volume': ['heavy', 'active', 'busy'],'low_volume': ['light', 'thin', 'quiet']}
     
     def summarize_market_activity(self,market_state: Dict[str, Any],price_history: List[float],volume: float,n_steps: int) -> Summary:
         if len(price_history) > 1:

@@ -8,7 +8,6 @@ import time
 import json
 from pathlib import Path
 
-
 class EventType(Enum):
     ECONOMIC = "economic"
     EARNINGS = "earnings"
@@ -21,7 +20,6 @@ class EventType(Enum):
     MARKET_STRUCTURE = "market_structure"
     RUMOR = "rumor"
     PANIC = "panic"
-
 
 @dataclass
 class EventEffects:
@@ -56,7 +54,6 @@ class EventCondition:
     forbidden_agents: Optional[List[str]] = None
     custom_condition: Optional[Callable[[Dict], bool]] = None
 
-
 @dataclass
 class MarketEvent:
     id: int
@@ -74,7 +71,6 @@ class MarketEvent:
     last_triggered: Optional[float] = None
     
     def check_conditions(self, market_state: Dict) -> bool:
-        """Check if event conditions are met"""
         if self.conditions.min_price is not None:
             if market_state.get('current_price', 0) < self.conditions.min_price:
                 return False
@@ -109,19 +105,15 @@ class MarketEvent:
         self.end_time = None
     
     def is_expired(self) -> bool:
-        if not self.is_active or self.end_time is None:
-            return False
-        return time.time() > self.end_time
+        return False if not (self.is_active or self.end_time is None) else time.time() > self.end_time
     
     def can_trigger(self, market_state: Dict) -> bool:
         if self.is_active:
             return False
         if self.last_triggered is not None:
-            cooldown_remaining = (self.last_triggered + self.cooldown) - time.time()
-            if cooldown_remaining > 0:
+            if (self.last_triggered + self.cooldown) - time.time() > 0:
                 return False
         return self.check_conditions(market_state)
-
 
 class EventManager:
     def __init__(self,load_default: bool):
@@ -176,23 +168,7 @@ class EventManager:
     
     def get_event_effects(self) -> Dict:
         active_events = self.get_active_events()
-        combined_effects = {
-            'price_drift': 0.0,
-            'volatility_multiplier': 1.0,
-            'liquidity_multiplier': 1.0,
-            'spread_multiplier': 1.0,
-            'buy_pressure': 0.0,
-            'sell_pressure': 0.0,
-            'volume_multiplier': 1.0,
-            'market_confidence': 1.0,
-            'jump_probability': 0.0,
-            'jump_mean': 0.0,
-            'jump_std': 0.0,
-            'mean_reversion_strength': 0.0,
-            'order_cancel_rate': 0.0,
-            'order_arrival_rate': 0.0
-        }
-        
+        combined_effects = {'price_drift': 0.0,'volatility_multiplier': 1.0,'liquidity_multiplier': 1.0,'spread_multiplier': 1.0,'buy_pressure': 0.0,'sell_pressure': 0.0,'volume_multiplier': 1.0,'market_confidence': 1.0,'jump_probability': 0.0,'jump_mean': 0.0,'jump_std': 0.0,'mean_reversion_strength': 0.0,'order_cancel_rate': 0.0,'order_arrival_rate': 0.0}
         for event in active_events:
             effects = event.effects
             combined_effects['price_drift'] += effects.price_drift
@@ -220,9 +196,7 @@ class EventManager:
     def reset(self):
         for event in self.events:
             event.is_active = False
-            event.start_time = None
-            event.end_time = None
-            event.last_triggered = None
+            event.start_time = event.end_time = event.last_triggered = None
     
     def load_events_from_json(self, json_path: str):
         json_file = Path(json_path)
@@ -234,60 +208,20 @@ class EventManager:
         
         if isinstance(events_data, dict):
             events_data = [events_data]
-        
         for event_data in events_data:
             try:
                 category_str = event_data.get('category', 'ECONOMIC')
                 category = EventType(category_str.lower())
                 effects_data = event_data.get('effects', {})
-                effects = EventEffects(
-                    price_drift=effects_data.get('price_drift', 0.0),
-                    volatility_multiplier=effects_data.get('volatility_multiplier', 1.0),
-                    liquidity_multiplier=effects_data.get('liquidity_multiplier', 1.0),
-                    spread_multiplier=effects_data.get('spread_multiplier', 1.0),
-                    buy_pressure=effects_data.get('buy_pressure', 0.0),
-                    sell_pressure=effects_data.get('sell_pressure', 0.0),
-                    volume_multiplier=effects_data.get('volume_multiplier', 1.0),
-                    market_confidence=effects_data.get('market_confidence', 1.0),
-                    sector_effects=effects_data.get('sector_effects', {}),
-                    asset_effects=effects_data.get('asset_effects', {}),
-                    correlation_change=effects_data.get('correlation_change', 0.0),
-                    jump_probability=effects_data.get('jump_probability', 0.0),
-                    jump_mean=effects_data.get('jump_mean', 0.0),
-                    jump_std=effects_data.get('jump_std', 0.0),
-                    mean_reversion_strength=effects_data.get('mean_reversion_strength', 0.0),
-                    order_cancel_rate=effects_data.get('order_cancel_rate', 0.0),
-                    order_arrival_rate=effects_data.get('order_arrival_rate', 0.0)
-                )
+                effects = EventEffects(effects_data.get('price_drift', 0.0),effects_data.get('volatility_multiplier', 1.0),effects_data.get('liquidity_multiplier', 1.0),effects_data.get('spread_multiplier', 1.0),effects_data.get('buy_pressure', 0.0),effects_data.get('sell_pressure', 0.0),effects_data.get('volume_multiplier', 1.0),effects_data.get('market_confidence', 1.0),effects_data.get('sector_effects', {}),effects_data.get('asset_effects', {}),effects_data.get('correlation_change', 0.0),effects_data.get('jump_probability', 0.0),effects_data.get('jump_mean', 0.0),effects_data.get('jump_std', 0.0),effects_data.get('mean_reversion_strength', 0.0),effects_data.get('order_cancel_rate', 0.0),effects_data.get('order_arrival_rate', 0.0))
                 conditions_data = event_data.get('conditions', {})
-                conditions = EventCondition(
-                    min_price=conditions_data.get('min_price'),
-                    max_price=conditions_data.get('max_price'),
-                    min_volatility=conditions_data.get('min_volatility'),
-                    max_volatility=conditions_data.get('max_volatility'),
-                    min_market_cap=conditions_data.get('min_market_cap'),
-                    max_market_cap=conditions_data.get('max_market_cap'),
-                    required_agents=conditions_data.get('required_agents'),
-                    forbidden_agents=conditions_data.get('forbidden_agents'),
-                    custom_condition=None  # Custom conditions cannot be serialized
-                )
-                event = MarketEvent(
-                    id=self._generate_event_id(),
-                    name=event_data.get('name', 'Custom Event'),
-                    category=category,
-                    probability=event_data.get('probability', 0.01),
-                    duration=event_data.get('duration', 30),
-                    cooldown=event_data.get('cooldown', 60),
-                    priority=event_data.get('priority', 2),
-                    conditions=conditions,
-                    effects=effects
-                )
-                self.add_event(event)
+                conditions = EventCondition(conditions_data.get('min_price'),conditions_data.get('max_price'),conditions_data.get('min_volatility'),conditions_data.get('max_volatility'),conditions_data.get('min_market_cap'),conditions_data.get('max_market_cap'),conditions_data.get('required_agents'),conditions_data.get('forbidden_agents'),None) 
+                self.add_event( MarketEvent(self._generate_event_id(),event_data.get('name', 'Custom Event'),category,event_data.get('probability', 0.01),event_data.get('duration', 30),event_data.get('cooldown', 60),event_data.get('priority', 2),conditions,effects))
             except Exception as e:
                 print(f"Warning: Failed to load event {event_data.get('name', 'unknown')}: {e}")
                 continue
-
     
+
     def _initialize_default_events(self):
         # Economic events
         self.add_event(MarketEvent(

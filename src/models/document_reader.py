@@ -1,14 +1,9 @@
-# For better parsing of Financial Documents
-
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, Optional, Any 
 from enum import Enum
-from pathlib import Path
 import hashlib
 from datetime import datetime
 import re
-from src.utils.logging import LogCategory
-
 
 class DocumentType(Enum):
     PDF = "pdf"
@@ -18,7 +13,6 @@ class DocumentType(Enum):
     MARKDOWN = "markdown"
     JSON = "json"
 
-
 @dataclass
 class Document:
     document_id: str
@@ -26,7 +20,6 @@ class Document:
     content: str
     metadata: Dict[str, Any] = field(default_factory=dict)
     source_path: Optional[str] = None
-    version: str = "1.0"
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
     checksum: str = ""
@@ -51,8 +44,7 @@ class DocumentPreprocessor:
             return ""
         cleaned = text
         if self.cleaning_rules['remove_extra_whitespace']:
-            cleaned = re.sub(r'\s+', ' ', cleaned)
-            cleaned = cleaned.strip()
+            cleaned = re.sub(r'\s+', ' ', cleaned).strip()
         if self.cleaning_rules['normalize_quotes']:
             quote_map = str.maketrans({'“': '"','”': '"','„': '"','‟': '"','‘': "'",'’': "'",'‚': "'",'‛': "'"})
             cleaned = cleaned.translate(quote_map)
@@ -60,6 +52,7 @@ class DocumentPreprocessor:
             cleaned = re.sub(r'[^\w\s\.\,\!\?\-\:\;]', '', cleaned)
         if self.cleaning_rules['lowercase']:
             cleaned = cleaned.lower()
+
         return cleaned
     
     def extract_key_information(self, text: str) -> Dict[str, Any]:
@@ -80,6 +73,6 @@ class DocumentPreprocessor:
         scored.sort(reverse=True, key=lambda x: x[0])
         summary_sentences = [s for score, s in scored[:3]]
         summary = " ".join(summary_sentences)
-        if len(summary) > max_length:
-            summary = summary[:max_length//2 - 3] + "..." + summary[max_length//2:]
+        if len(summary) > max_length: # Truncating 
+            summary = summary[:max_length//2 - 3] + "..." + summary[max_length//2:] 
         return summary[:max_length]

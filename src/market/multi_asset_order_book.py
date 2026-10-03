@@ -1,18 +1,12 @@
-from dataclasses import dataclass, field
-from enum import Enum
 from typing import List, Dict, Optional, Tuple
 from sortedcontainers import SortedDict, SortedList
-import time
 from src.market.order_book import OrderBook, Order, OrderSide, Trade
 
-
 class MultiAssetOrderBook:
-
     def __init__(self, assets: List[str]):
         self.assets = assets
         self.order_books: Dict[str, OrderBook] = {}
         self.asset_to_idx: Dict[str, int] = {asset: idx for idx, asset in enumerate(assets)}
-        
         for asset in assets:
             self.order_books[asset] = OrderBook()
     
@@ -96,17 +90,7 @@ class MultiAssetOrderBook:
         return {asset: self.order_books[asset].get_recent_trades(limit) for asset in self.assets}
     
     def get_aggregated_market_state(self) -> Dict:
-        state = {
-            'assets': self.assets,
-            'asset_indices': self.asset_to_idx,
-            'order_books': {},
-            'mid_prices': {},
-            'spreads': {},
-            'total_bid_volume': 0,
-            'total_ask_volume': 0,
-            'total_trades': 0
-        }
-        
+        state = {'assets': self.assets,'asset_indices': self.asset_to_idx,'order_books': {},'mid_prices': {},'spreads': {},'total_bid_volume': 0,'total_ask_volume': 0,'total_trades': 0}
         for asset in self.assets:
             book_state = self.order_books[asset].get_order_book_state()
             state['order_books'][asset] = book_state
@@ -115,7 +99,6 @@ class MultiAssetOrderBook:
             state['total_bid_volume'] += book_state.get('total_bid_volume', 0)
             state['total_ask_volume'] += book_state.get('total_ask_volume', 0)
             state['total_trades'] += book_state.get('num_trades', 0)
-        
         return state
     
     def reset(self):

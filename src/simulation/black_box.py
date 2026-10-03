@@ -6,7 +6,6 @@ from datetime import datetime
 from src.utils.logging import LogCategory
 
 class PredictionType(Enum):
-    """Types of predictions agents can make"""
     PRICE_LEVEL = "price_level"
     REGIME_TRANSITION = "regime_transition"
     TREND_DIRECTION = "trend_direction"
@@ -15,9 +14,7 @@ class PredictionType(Enum):
 
 @dataclass
 class Prediction:
-    """
-    Individual prediction made by an agent during black box period.
-    """
+    """ Single prediction by agent during bbox period. """
     agent_id: str
     prediction_type: PredictionType
     predicted_values: List[float]  # Predicted price path for k days
@@ -27,7 +24,7 @@ class Prediction:
     timestamp: datetime = field(default_factory=datetime.now)
     
     def validate(self) -> bool:
-        """Validate prediction format and constraints"""
+        """ Validate prediction """
         if not self.predicted_values:
             return False
         
@@ -42,20 +39,15 @@ class Prediction:
         
         return True
 
-
 @dataclass
 class PredictionResult:
-    """
-    Result of prediction evaluation against actual market outcomes.
-    """
     prediction: Prediction
     actual_values: List[float]
-    accuracy_score: float  # 0.0 to 1.0
+    accuracy_score: float
     confidence_calibration: float  # How well confidence matched accuracy
     reward_multiplier: float = 1.0
     villain_points_earned: int = 0
     is_king: bool = False
-
 
 @dataclass
 class PredictionMarket:
@@ -67,56 +59,31 @@ class PredictionMarket:
     liquidity_pool: float = 10000.0
     active_bets: Dict[str, Dict] = field(default_factory=dict)
     
-    def place_bet(
-        self,
-        agent_id: str,
-        prediction_id: str,
-        amount: float,
-        outcome: str  # "correct" or "incorrect"
-    ) -> bool:
-        """Place a bet on a prediction outcome"""
+    def place_bet(self,agent_id: str,prediction_id: str,amount: float,outcome: str) -> bool:
         if amount <= 0 or amount > self.liquidity_pool * 0.1:
             return False
-        
         if agent_id in self.active_bets:
-            return False  # One bet per agent per round
-        
-        self.active_bets[agent_id] = {
-            'prediction_id': prediction_id,
-            'amount': amount,
-            'outcome': outcome
-        }
-        
+            return False 
+
+        self.active_bets[agent_id] = {'prediction_id': prediction_id,'amount': amount,'outcome': outcome}
         return True
     
     def settle_bets(self, correct_predictions: List[str]) -> Dict[str, float]:
-        """Settle bets and return payouts"""
         payouts = {}
-        
         for agent_id, bet in self.active_bets.items():
             prediction_id = bet['prediction_id']
-            amount = bet['amount']
             outcome = bet['outcome']
             
-            if (outcome == "correct" and prediction_id in correct_predictions) or \
-               (outcome == "incorrect" and prediction_id not in correct_predictions):
-                # Correct bet - return 2x amount
-                payouts[agent_id] = amount * 2.0
+            if (outcome == "correct" and prediction_id in correct_predictions) or (outcome == "incorrect" and prediction_id not in correct_predictions):
+                payouts[agent_id] = bet['amount'] * 2.0
             else:
-                # Incorrect bet - lose amount
                 payouts[agent_id] = 0.0
-        
-        # Reset active bets
         self.active_bets.clear()
-        
         return payouts
 
 
 @dataclass
 class LeaderboardEntry:
-    """
-    Entry on prediction leaderboard.
-    """
     agent_id: str
     total_predictions: int
     correct_predictions: int
@@ -130,223 +97,131 @@ class LeaderboardEntry:
 
 class BlackBoxPredictionSystem:
     """
-    Enhanced black box prediction system with advanced features.
     Implements sophisticated prediction contests with market mechanisms.
     """
     
-    def __init__(
-        self,
-        duration: int = 5,
-        frequency: int = 20,
-        min_confidence: float = 0.3,
-        require_explanation: bool = True,
-        enable_prediction_market: bool = True
-    ):
+    def __init__(self,duration: int = 5,frequency: int = 20,min_confidence: float = 0.3,require_explanation: bool = True,enable_prediction_market: bool = True):
         self.duration = duration
         self.frequency = frequency
         self.min_confidence = min_confidence
         self.require_explanation = require_explanation
         self.enable_prediction_market = enable_prediction_market
         
-        # State tracking
         self.is_active = False
         self.remaining_duration = 0
         self.step_counter = 0
         self.current_predictions: Dict[str, Prediction] = {}
         self.prediction_results: List[PredictionResult] = []
         
-        # Prediction market
         self.prediction_market = PredictionMarket() if enable_prediction_market else None
-        
-        # Leaderboard
         self.leaderboard: Dict[str, LeaderboardEntry] = {}
         
-        # King status tracking
         self.current_king: Optional[str] = None
         self.king_reward_multiplier: float = 2.0
         self.king_history: List[Tuple[str, int]] = []  # (agent_id, duration)
         
-        # Villain points system
         self.villain_points_threshold = 0.8  # Accuracy threshold for villain points
         self.villain_points_per_prediction = 2
         
-        # Ensemble methods
         self.use_ensemble = True
         self.ensemble_method = "weighted_average"  # "weighted_average", "voting", "stacking"
     
     def should_trigger(self) -> bool:
-        """Check if black box period should be triggered"""
         self.step_counter += 1
-        
         if not self.is_active and self.step_counter >= self.frequency:
             self.is_active = True
             self.remaining_duration = self.duration
             self.step_counter = 0
             return True
-        
         return False
     
     def update(self):
-        """Update black box state"""
         if self.is_active:
             self.remaining_duration -= 1
             if self.remaining_duration <= 0:
                 self.is_active = False
     
-    def submit_prediction(
-        self,
-        agent_id: str,
-        prediction: Prediction
-    ) -> bool:
-        """
-        Submit a prediction from an agent.
-        Returns True if prediction was accepted.
-        """
-        # Check if black box is active
+    def submit_prediction(self,agent_id: str,prediction: Prediction) -> bool:
         if not self.is_active:
             return False
         
-        # Validate prediction
         if not prediction.validate():
             return False
         
-        # Check confidence level
         if prediction.confidence_level < self.min_confidence:
             return False
         
-        # Check explanation requirement
         if self.require_explanation and not prediction.explanation:
             return False
         
-        # Check if agent already submitted
         if agent_id in self.current_predictions:
             return False
         
-        # Store prediction
         self.current_predictions[agent_id] = prediction
         
         return True
     
     def evaluate_predictions(self, actual_values: List[float]) -> List[PredictionResult]:
-        """
-        Evaluate all predictions against actual market outcomes.
-        Returns list of prediction results.
-        """
+        """ Returns list of prediction results """
         results = []
         
         for agent_id, prediction in self.current_predictions.items():
-            # Calculate accuracy score
-            accuracy = self._calculate_accuracy(
-                prediction.predicted_values,
-                actual_values
-            )
+
+            accuracy = self._calculate_accuracy(prediction.predicted_values,actual_values)
+            confidence_calibration = self._calculate_confidence_calibration(prediction,actual_values)
+            reward_multiplier = self._calculate_reward_multiplier(accuracy,confidence_calibration)
             
-            # Calculate confidence calibration
-            confidence_calibration = self._calculate_confidence_calibration(
-                prediction,
-                actual_values
-            )
-            
-            # Determine reward multiplier
-            reward_multiplier = self._calculate_reward_multiplier(
-                accuracy,
-                confidence_calibration
-            )
-            
-            # Determine villain points
             villain_points = 0
             if accuracy >= self.villain_points_threshold:
                 villain_points = self.villain_points_per_prediction
             
-            # Check if this agent becomes king
             is_king = False
-            if accuracy == max(
-                self._calculate_accuracy(p.predicted_values, actual_values)
-                for p in self.current_predictions.values()
-            ):
+            if accuracy == max(self._calculate_accuracy(p.predicted_values, actual_values)for p in self.current_predictions.values()):
                 is_king = True
                 self.current_king = agent_id
                 reward_multiplier *= self.king_reward_multiplier
             
-            # Create result
-            result = PredictionResult(
-                prediction=prediction,
-                actual_values=actual_values,
-                accuracy_score=accuracy,
-                confidence_calibration=confidence_calibration,
-                reward_multiplier=reward_multiplier,
-                villain_points_earned=villain_points,
-                is_king=is_king
-            )
-            
+            result = PredictionResult(prediction,actual_values,accuracy,confidence_calibration,reward_multiplier,villain_points,is_king)
             results.append(result)
-            
-            # Update leaderboard
             self._update_leaderboard(agent_id, result)
         
-        # Store results
         self.prediction_results.extend(results)
-        
-        # Clear current predictions
         self.current_predictions.clear()
-        
+
         return results
     
-    def _calculate_accuracy(
-        self,
-        predicted_values: List[float],
-        actual_values: List[float]
-    ) -> float:
+    def _calculate_accuracy(self,predicted_values: List[float],actual_values: List[float]) -> float:
         """Calculate accuracy score using mean absolute percentage error"""
         if len(predicted_values) != len(actual_values):
             return 0.0
-        
         total_error = 0.0
         for pred, actual in zip(predicted_values, actual_values):
             if actual != 0:
                 error = abs(pred - actual) / abs(actual)
                 total_error += error
-        
-        mape = total_error / len(predicted_values)
-        accuracy = max(0.0, 1.0 - mape)
-        
+
+        accuracy = max(0.0, 1.0 - total_error / len(predicted_values))
         return accuracy
     
-    def _calculate_confidence_calibration(
-        self,
-        prediction: Prediction,
-        actual_values: List[float]
-    ) -> float:
+    def _calculate_confidence_calibration(self,prediction: Prediction,actual_values: List[float]) -> float:
         """
-        Calculate how well confidence interval matched actual values.
-        Returns calibration score (0.0 to 1.0).
+        Calculate how well confidence interval matched actual values
+        Returns calibration score (0.0 to 1.0)
         """
         lower_bound, upper_bound = prediction.confidence_interval
         
-        # Count how many actual values fall within confidence interval
         within_interval = 0
         for actual in actual_values:
             if lower_bound <= actual <= upper_bound:
                 within_interval += 1
         
-        # Expected proportion based on confidence level
         expected_proportion = prediction.confidence_level
         actual_proportion = within_interval / len(actual_values)
-        
-        # Calibration is how close actual is to expected
-        calibration = 1.0 - abs(actual_proportion - expected_proportion)
-        
-        return max(0.0, calibration)
+        return max(0.0, 1.0 - abs(actual_proportion - expected_proportion))
     
-    def _calculate_reward_multiplier(
-        self,
-        accuracy: float,
-        confidence_calibration: float
-    ) -> float:
-        """Calculate reward multiplier based on accuracy and calibration"""
+    def _calculate_reward_multiplier(self,accuracy: float,confidence_calibration: float) -> float:
+
         base_multiplier = 1.0
-        
-        # Accuracy bonus
         if accuracy > 0.9:
             base_multiplier *= 1.5
         elif accuracy > 0.8:
@@ -354,7 +229,6 @@ class BlackBoxPredictionSystem:
         elif accuracy > 0.7:
             base_multiplier *= 1.1
         
-        # Calibration bonus
         if confidence_calibration > 0.9:
             base_multiplier *= 1.2
         elif confidence_calibration > 0.8:
@@ -363,66 +237,31 @@ class BlackBoxPredictionSystem:
         return base_multiplier
     
     def _update_leaderboard(self, agent_id: str, result: PredictionResult):
-        """Update leaderboard with new prediction result"""
         if agent_id not in self.leaderboard:
-            self.leaderboard[agent_id] = LeaderboardEntry(
-                agent_id=agent_id,
-                total_predictions=0,
-                correct_predictions=0,
-                accuracy=0.0,
-                average_confidence=0.0,
-                confidence_calibration=0.0,
-                total_villain_points=0,
-                king_count=0,
-                reputation_score=0.0
-            )
+            self.leaderboard[agent_id] = LeaderboardEntry(agent_id,0,0,0.0,0.0,0.0,0,0,0.0)
         
         entry = self.leaderboard[agent_id]
         entry.total_predictions += 1
-        
         if result.accuracy_score >= 0.7:  # Consider 70%+ as "correct"
             entry.correct_predictions += 1
         
-        # Update running accuracy
         entry.accuracy = entry.correct_predictions / entry.total_predictions
+        entry.average_confidence = (entry.average_confidence * (entry.total_predictions - 1) +result.prediction.confidence_level) / entry.total_predictions
+        entry.confidence_calibration = (entry.confidence_calibration * (entry.total_predictions - 1) +result.confidence_calibration) / entry.total_predictions
         
-        # Update average confidence
-        entry.average_confidence = (
-            entry.average_confidence * (entry.total_predictions - 1) +
-            result.prediction.confidence_level
-        ) / entry.total_predictions
-        
-        # Update confidence calibration
-        entry.confidence_calibration = (
-            entry.confidence_calibration * (entry.total_predictions - 1) +
-            result.confidence_calibration
-        ) / entry.total_predictions
-        
-        # Update villain points
         entry.total_villain_points += result.villain_points_earned
         
-        # Update king count
         if result.is_king:
             entry.king_count += 1
         
-        # Calculate reputation score
         entry.reputation_score = self._calculate_reputation_score(entry)
     
     def _calculate_reputation_score(self, entry: LeaderboardEntry) -> float:
-        """Calculate overall reputation score"""
-        # Weighted combination of factors
         accuracy_weight = 0.4
         calibration_weight = 0.2
         villain_points_weight = 0.2
         king_weight = 0.2
-        
-        score = (
-            entry.accuracy * accuracy_weight +
-            entry.confidence_calibration * calibration_weight +
-            min(1.0, entry.total_villain_points / 50.0) * villain_points_weight +
-            min(1.0, entry.king_count / 10.0) * king_weight
-        )
-        
+        score = (entry.accuracy * accuracy_weight +entry.confidence_calibration * calibration_weight +min(1.0, entry.total_villain_points / 50.0) * villain_points_weight +min(1.0, entry.king_count / 10.0) * king_weight)
         return score
     
     def get_ensemble_prediction(self) -> Optional[List[float]]:
@@ -432,9 +271,7 @@ class BlackBoxPredictionSystem:
         """
         if not self.use_ensemble or not self.current_predictions:
             return None
-        
         predictions = list(self.current_predictions.values())
-        
         if self.ensemble_method == "weighted_average":
             return self._weighted_average_ensemble(predictions)
         elif self.ensemble_method == "voting":
@@ -445,53 +282,40 @@ class BlackBoxPredictionSystem:
             return self._simple_average_ensemble(predictions)
     
     def _simple_average_ensemble(self, predictions: List[Prediction]) -> List[float]:
-        """Simple average of all predictions"""
         if not predictions:
             return []
-        
         num_predictions = len(predictions)
         prediction_length = len(predictions[0].predicted_values)
-        
         ensemble = [0.0] * prediction_length
         for pred in predictions:
             for i, value in enumerate(pred.predicted_values):
                 ensemble[i] += value
-        
-        ensemble = [value / num_predictions for value in ensemble]
-        
-        return ensemble
+        return [value / num_predictions for value in ensemble]
     
     def _weighted_average_ensemble(self, predictions: List[Prediction]) -> List[float]:
         """Weighted average based on confidence levels"""
         if not predictions:
             return []
-        
         total_weight = sum(pred.confidence_level for pred in predictions)
         if total_weight == 0:
             return self._simple_average_ensemble(predictions)
-        
         prediction_length = len(predictions[0].predicted_values)
         ensemble = [0.0] * prediction_length
-        
         for pred in predictions:
             weight = pred.confidence_level / total_weight
             for i, value in enumerate(pred.predicted_values):
                 ensemble[i] += value * weight
-        
         return ensemble
     
     def _voting_ensemble(self, predictions: List[Prediction]) -> List[float]:
         """Voting-based ensemble using median"""
         if not predictions:
             return []
-        
         prediction_length = len(predictions[0].predicted_values)
         ensemble = []
-        
         for i in range(prediction_length):
             values_at_step = [pred.predicted_values[i] for pred in predictions]
             ensemble.append(np.median(values_at_step))
-        
         return ensemble
     
     def _stacking_ensemble(self, predictions: List[Prediction]) -> List[float]:
@@ -501,8 +325,6 @@ class BlackBoxPredictionSystem:
         """
         if not predictions:
             return []
-        
-        # Get total reputation weight
         total_reputation = 0.0
         for pred in predictions:
             entry = self.leaderboard.get(pred.agent_id)
@@ -510,90 +332,46 @@ class BlackBoxPredictionSystem:
                 total_reputation += entry.reputation_score
             else:
                 total_reputation += 0.5  # Default for new agents
-        
         if total_reputation == 0:
             return self._simple_average_ensemble(predictions)
-        
         prediction_length = len(predictions[0].predicted_values)
         ensemble = [0.0] * prediction_length
-        
         for pred in predictions:
             entry = self.leaderboard.get(pred.agent_id)
             weight = entry.reputation_score / total_reputation if entry else 0.5 / total_reputation
-            
             for i, value in enumerate(pred.predicted_values):
                 ensemble[i] += value * weight
-        
         return ensemble
     
     def get_leaderboard(self, top_n: int = 10) -> List[LeaderboardEntry]:
-        """Get top N entries from leaderboard"""
-        sorted_entries = sorted(
-            self.leaderboard.values(),
-            key=lambda x: x.reputation_score,
-            reverse=True
-        )
-        return sorted_entries[:top_n]
+        return sorted(self.leaderboard.values(),key=lambda x: x.reputation_score,reverse=True)[:top_n]
     
     def get_market_consensus(self) -> Optional[Dict[str, Any]]:
-        """
-        Get market consensus from predictions.
-        Returns aggregated market view.
-        """
+        """ Returns aggregated market view """
         if not self.current_predictions:
             return None
-        
         ensemble = self.get_ensemble_prediction()
         if not ensemble:
             return None
-        
-        # Calculate statistics
         predictions = list(self.current_predictions.values())
         all_values = [value for pred in predictions for value in pred.predicted_values]
         
-        return {
-            'ensemble_prediction': ensemble,
-            'mean_prediction': np.mean(all_values),
-            'std_prediction': np.std(all_values),
-            'num_predictions': len(predictions),
-            'average_confidence': np.mean([pred.confidence_level for pred in predictions]),
-            'consensus_strength': 1.0 - (np.std(all_values) / np.mean(all_values)) if np.mean(all_values) > 0 else 0.0
-        }
+        return {'ensemble_prediction': ensemble,'mean_prediction': np.mean(all_values),'std_prediction': np.std(all_values),'num_predictions': len(predictions),'average_confidence': np.mean([pred.confidence_level for pred in predictions]),'consensus_strength': 1.0 - (np.std(all_values) / np.mean(all_values)) if np.mean(all_values) > 0 else 0.0}
     
     def get_non_participants_penalty(self, all_agent_ids: List[str]) -> Dict[str, float]:
-        """
-        Get penalty for agents who didn't participate during black box.
-        Returns dictionary mapping agent_id to penalty amount.
-        """
         penalties = {}
-        
         for agent_id in all_agent_ids:
             if agent_id not in self.current_predictions:
-                penalties[agent_id] = -0.5  # Large penalty for non-participation
-        
+                penalties[agent_id] = -0.5
         return penalties
     
     def reset(self):
-        """Reset black box system state for new episode"""
         self.is_active = False
         self.remaining_duration = 0
         self.step_counter = 0
         self.current_predictions.clear()
         self.prediction_results.clear()
         self.current_king = None
-        
-        # Keep leaderboard across episodes for persistent reputation
-        # But could optionally reset it:
-        # self.leaderboard.clear()
     
     def get_state(self) -> Dict[str, Any]:
-        """Get current black box system state"""
-        return {
-            'is_active': self.is_active,
-            'remaining_duration': self.remaining_duration,
-            'step_counter': self.step_counter,
-            'num_predictions': len(self.current_predictions),
-            'current_king': self.current_king,
-            'leaderboard_size': len(self.leaderboard),
-            'market_consensus': self.get_market_consensus()
-        }
+        return {'is_active': self.is_active,'remaining_duration': self.remaining_duration,'step_counter': self.step_counter,'num_predictions': len(self.current_predictions),'current_king': self.current_king,'leaderboard_size': len(self.leaderboard),'market_consensus': self.get_market_consensus()}

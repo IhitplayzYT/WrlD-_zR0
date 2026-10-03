@@ -1,11 +1,9 @@
 from src.utils.logging import JSONLogger
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any
+from typing import Dict, Optional, Any
 from pathlib import Path
 import json
 from datetime import datetime
 from src.utils.logging import LogCategory
-
 
 class ExperimentTracker:
     def __init__(self, log_dir: str = "./logs", exp_name: Optional[str] = None,logger: JSONLogger=JSONLogger()):
@@ -33,8 +31,7 @@ class ExperimentTracker:
             json.dump(summary, f, indent=2, default=str)
     
     def finish(self):
-        final_state = {'experiment_name': self.exp_name,'total_steps': len(self.metrics_log),'hyperparameters': self.hyperparams,'completed_at': datetime.now().isoformat()}
         with open(self.exp_name / "final_state.json", 'w') as f:
-            json.dump(final_state, f, indent=2)
+            json.dump({'experiment_name': self.exp_name,'total_steps': len(self.metrics_log),'hyperparameters': self.hyperparams,'completed_at': datetime.now().isoformat()}, f, indent=2)
         self.logger.info(LogCategory.SYSTEM, f"Experiment '{self.exp_dir}' completed", data={'experiment_dir': str(self.exp_dir)})
 

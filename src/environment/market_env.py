@@ -1,27 +1,20 @@
-import numpy as np
-from typing import Dict, List, Tuple, Optional, Any
-from dataclasses import dataclass, field
-import gymnasium as gym
-from gymnasium import spaces
-from pettingzoo import AECEnv
-from pettingzoo.utils import wrappers
-from pettingzoo.utils.agent_selector import agent_selector
-
+from src.utils.logging import JSONLogger,LogCategory
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from src.market import OrderBook, OrderSide
+import numpy as np
+from typing import Dict, List, Tuple, Optional
+from dataclasses import dataclass, field
+from gymnasium import spaces
+from pettingzoo import AECEnv
+from pettingzoo.utils.agent_selector import agent_selector
+from src.market import OrderSide
 from src.market.multi_asset_order_book import MultiAssetOrderBook
 from src.market import MultiStockEnvironment
-from src.events import EventManager, MarketEvent, EventType
-from src.agents import BaseAgent, RLAIFAgent, AdversarialAgent, AgentType
+from src.events import EventManager
+from src.agents import BaseAgent, RLAIFAgent, AdversarialAgent
 from src.environment.observation_space import EnhancedObservationSpace
 from src.simulation.black_box import BlackBoxPredictionSystem
-from src.utils.logging import get_logger, LogCategory
-
-logger = get_logger()
-
 
 @dataclass
 class AgentState:
@@ -36,11 +29,10 @@ class AgentState:
     last_action: Optional[Dict] = None
     profit_history: List[float] = field(default_factory=list)
 
-
 class MarketEnvironment(AECEnv):
     metadata = {"name": "WrlD_Zr0","render_modes": ["human", "rgb_array"]}
     
-    def __init__(self,n_agents: int = 5,max_bad_agents: int = 1,initial_cash: float = 1000.0,episode_length: int = 200,price_data: Dict[str, List[float]] = None, black_box_duration: int = 5,black_box_frequency: int = 20,event_manager: Optional[EventManager] = None,use_enhanced_observation: bool = True,agent_types: Optional[List[str]] = None):
+    def __init__(self,logger: JSONLogger,n_agents: int = 5,max_bad_agents: int = 1,initial_cash: float = 1000.0,episode_length: int = 200,price_data: Dict[str, List[float]] = None, black_box_duration: int = 5,black_box_frequency: int = 20,event_manager: Optional[EventManager] = None,use_enhanced_observation: bool = True,agent_types: Optional[List[str]] = None):
         super().__init__()
         self.n_agents = n_agents
         self.max_bad_agents = max_bad_agents
@@ -57,6 +49,7 @@ class MarketEnvironment(AECEnv):
         self.available_assets = list(self.price_data.keys())
         self.order_book = MultiAssetOrderBook(assets=self.available_assets)
         self.multi_stock_env = MultiStockEnvironment(assets=self.available_assets, stock_data=self.price_data)
+        self.logger = logger
         self.event_manager = event_manager if event_manager else EventManager()
         
         # Enhanced observation space
@@ -198,7 +191,7 @@ class MarketEnvironment(AECEnv):
         self._process_events()
         if self.black_box_system.should_trigger():
             self.is_black_box = True
-            logger.info(LogCategory.EVENT, f"Black box period triggered at step {self.current_step}", data={'step': self.current_step})
+            self.logger.info(LogCategory.EVENT, f"Black box period triggered at step {self.current_step}", data={'step': self.current_step})
         
         if self.is_black_box:
             self.black_box_system.update()

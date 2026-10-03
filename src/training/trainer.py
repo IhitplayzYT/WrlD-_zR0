@@ -1,4 +1,3 @@
-from xml.dom.expatbuilder import theDOMImplementation
 from src.utils.logging import JSONLogger
 from dataclasses import dataclass
 from typing import Dict, List, Optional,Tuple 
@@ -16,20 +15,15 @@ EPS = 1e-8
 
 @dataclass
 class TrainingLevel:
-    """
-    Curriculum learning level configuration.
-    Defines complexity parameters for training progression.
-    """
     lvl: int
     complexity: float  # 0.0 to 1.0
     event_freq: float 
     volatility: float 
     n_agent: int
     bbox_freq: int 
-    rwrd_scale: float  # Multiplier for rewards
+    rwrd_scale: float 
     desc: str = ""
     thresh: float = 0.5
-
 
 class TrainingScheduler:
     def __init__(self, mx_lvl: int = 4,logger: JSONLogger = JSONLogger()):
@@ -51,17 +45,13 @@ class TrainingScheduler:
     def should_progress(self, perf: float, window: int = 5) -> bool:
         if self.curr_lvl_idx >= self.mx_lvl - 1:
             return False
-
         self.performance.append(perf)
         l = len(self.performance)
-
         if l > window:
             self.performance.pop(0)
             l -= 1
-        
         if l >= window:
             return np.mean(self.performance) > self.lvls[self.curr_lvl_idx].thresh
-
         return False
     
     def progress(self):
@@ -75,7 +65,6 @@ class TrainingScheduler:
         self.curr_lvl_idx = 0
         self.lvl_hist.clear()
         self.performance.clear()
-
 
 @dataclass
 class TrainConf:
@@ -99,7 +88,7 @@ class TrainConf:
 
 
 class ExperienceReplay:
-    """ Sample efficient learning supporting prioritized replay """
+    """ Priority replay """
     def __init__(self, cap: int, prioritized: bool = True):
         self.cap = cap 
         self.is_priority = prioritized
@@ -126,27 +115,6 @@ class ExperienceReplay:
         return len(self.buff)
 
 
-"""
-class TrainConf:
-    n_episodes: int = 100
-    episode_len: int = 200
-    n_agents: int = 5
-    mx_bad_agents: int = 1
-    init_cash: float = 10000.0
-    save_freq: int = 10
-    eval_freq: int = 10
-    log_freq: int = 10
-    replay_buff_sz: int = 1000
-    use_trainer: bool = True
-    use_experience_replay: bool = True
-    prioritize_replay: bool = True
-    adversial_train: bool = True
-    self_play: bool = False
-    transfer_learning: bool = False
-    checkpoint_dir: str = "./checkpoints"
-    log_dir: str = "./logs"
-"""
-
 class TrainingPipeline:
 
     def __init__(self, config: TrainConf,logger: JSONLogger = JSONLogger()):
@@ -158,9 +126,9 @@ class TrainingPipeline:
         self.scheduler = TrainingScheduler() if config.use_trainer else None
         self.replay_buff = ExperienceReplay(config.replay_buff_sz,config.prioritize_replay) if config.use_experience_replay else None
         self.curr_ep = 0
-        self.ep_reward: List[float] = []
-        self.ep_len: List[int] = []
-        self.performance: Dict[str, List[float]] = {}
+        self.ep_reward = []
+        self.ep_len = []
+        self.performance = {}
         self.env = None
         self.train_log = []
         self.start_time = datetime.now()
@@ -176,10 +144,10 @@ class TrainingPipeline:
             n_types = train_lvl.n_agent
             agent_types = ["rlaif"] * (self.conf.n_agents - 1)
             if n_types >= 2 and self.conf.adversarial_training:
-                agent_types[-1] = "adversarial"   # Train with one adversial agent only
+                agent_types[-1] = "adversarial" 
         else:
             agent_types = ["rlaif"] * self.conf.n_agents
-        return MarketEnvironment(n_agents=self.conf.n_agents,max_bad_agents=self.conf.mx_bad_agents,initial_cash=self.conf.init_cash,episode_length=self.conf.episode_len,price_data=price_data,black_box_frequency=train_lvl.black_box_frequency if train_lvl else 20,black_box_duration=5,use_enhanced_observation=True,agent_types=agent_types)
+        return MarketEnvironment(self.conf.n_agents,self.conf.mx_bad_agents,self.conf.init_cash,self.conf.episode_len,price_data,train_lvl.black_box_frequency if train_lvl else 20,5,True,agent_types)
     
     def _gen_price_data(self, train_lvl: Optional[TrainingLevel]) -> List[float]:
         volatility = 0.01 if train_lvl is None else train_lvl.volatility * 0.03
@@ -189,14 +157,12 @@ class TrainingPipeline:
             prices.append(max(prices[-1] * (1 + np.random.normal(0, volatility)), 1.0))
         return prices
 
-    # TODO : FIXME: 
     def train_episode(self, env: MarketEnvironment) -> Dict[str, float]:
         obs, infos = env.reset()
         episode_reward = 1.0
         episode_len = 0
         agent_rewards = {agent_id: 0.0 for agent_id in env.agents}
         done = False
-
         while not done:
             agent = env.agent_selection
             agent_obj = env.agent_objects[agent]
@@ -216,7 +182,7 @@ class TrainingPipeline:
             if id not in self.performance:
                 self.performance[id] = []
             self.performance[id].append(reward)
-        
+
         if self.scheduler:
             curriculum_level = self.scheduler.get_curr_lvl()
             episode_reward *= curriculum_level.rwrd_scale
@@ -224,13 +190,10 @@ class TrainingPipeline:
         return {'episode_reward': episode_reward,'episode_length': episode_len,'agent_rewards': agent_rewards,'average_agent_reward': np.mean(list(agent_rewards.values()))}
     
     def evaluate(self, env: MarketEnvironment, n_episodes: int = 5) -> Dict[str, float]:
-        eval_rewards = []
-        eval_lengths = []
+        eval_rewards,eval_lengths = [],[]
         for _ in range(n_episodes):
             obs, infos = env.reset()
-            episode_reward = 0.0
-            episode_length = 0
-            done = False
+            episode_reward,episode_length,done = 0.0,0,False
             while not done:
                 agent = env.agent_selection
                 agent_obj = env.agent_objects[agent]
@@ -246,7 +209,6 @@ class TrainingPipeline:
     def train(self):
         self.logger.info(LogCategory.TRAINING, f"Starting training for {self.conf.n_episodes} episodes", data={'n_episodes': self.conf.n_episodes, 'curriculum_learning': self.conf.use_trainer, 'experience_replay': self.conf.use_experience_replay})
         self.env = self.create_environment()
-        
         for episode in range(self.conf.n_episodes):
             self.curr_ep = episode
             ep_metrics = self.train_episode(self.env)
