@@ -4,6 +4,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import random
 import numpy as np
 from datetime import datetime
+from pathlib import Path
 import src.helper as helper
 import src.data.augment as augment
 import src.data.generate as generate
@@ -17,6 +18,9 @@ from src.utils.logging import setup_logger, LogCategory, get_logger
 from src.tracking.experiment import ExperimentTracker
 from src.models.summary_model import SummaryModel
 from src.evaluation.metrics import MetricsCalculator
+from src.simulation.world_model import WorldModel
+from src.agents.adversarial_agent import AdversarialAgent
+from src.training.trainer import TrainingPipeline, TrainConf
 
 if __name__ == "__main__":
     clargs = helper.CLI()
@@ -86,20 +90,58 @@ if __name__ == "__main__":
     n_bad = clargs.mx_bad
     agent_types = ["adversarial"] * n_bad + ["rlaif"] * (clargs.n_agnts - n_bad)
 
-    env = MarketEnvironment(clargs.n_agnts,clargs.mx_bad,clargs.initial_amount,episode_len_steps,stock_map,clargs.black_bx_dur,clargs.black_bx_freq,events,agent_types,logger)
+    ckpt_dir = Path(clargs.checkpoint_dir)
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+    world_model = WorldModel(state_dim=64, action_dim=4, logger=logger)
+    world_model_path = ckpt_dir / "world_model.pt"
+    temporal_path = ckpt_dir / "temporal_head.pt"
+    if clargs.train_models:
+        world_model.set_training_mode(True)
+    elif world_model_path.exists():
+        world_model.load(str(world_model_path))
+        world_model.set_training_mode(False)
+    env = MarketEnvironment(n_agents=clargs.n_agnts, max_bad_agents=clargs.mx_bad, initial_cash=clargs.initial_amount, episode_length=episode_len_steps, price_data=stock_map, black_box_duration=clargs.black_bx_dur, black_box_frequency=clargs.black_bx_freq, event_manager=events, agent_types=agent_types, logger=logger)
+    if env.observation_space_enhanced and temporal_path.exists() and not clargs.train_models:
+        env.observation_space_enhanced.load_temporal_head(str(temporal_path))
+    for agent in env.agent_objects.values():
+        if isinstance(agent, AdversarialAgent):
+            adv_path = ckpt_dir / f"{agent.agent_id}_policy.pt"
+            if clargs.train_models:
+                agent.training_enabled = True
+            elif adv_path.exists():
+                agent.load_model(str(adv_path))
+                agent.training_enabled = False
+    if clargs.enable_trainer:
+        trainer = TrainingPipeline(TrainConf(n_episodes=clargs.mx_episodes, episode_len=episode_len_steps, n_agents=clargs.n_agnts, mx_bad_agents=clargs.mx_bad, init_cash=clargs.initial_amount, checkpoint_dir=str(ckpt_dir)), logger=logger)
+        trainer.train()
+        logger.flush()
+        sys.exit(0)
     summary_model = SummaryModel(logger=logger)
     metrics_calc = MetricsCalculator(logger=logger)
-    
+    wm_transitions = []
+    price_sequences = []
     obs, _ = env.reset()
     logger.info(LogCategory.SYSTEM, "Starting market simulation", data={'num_agents': env.n_agents, 'assets': list(stock_map.keys())})
     total_steps_executed = 0
     portfolio_history = []
     for step in range(env.episode_length):
         actions = {}
+        prev_obs = {aid: obs[aid] for aid in env.agents}
         for id in env.agents:
             agent, ob = env.agent_objects[id], obs[id]
             actions[id] = agent.decide_action(ob, env.action_space)
         obs, rewards, terminated, truncated, _ = env.step(actions)
+        for aid in env.agents:
+            st = WorldModel.flatten_observation(prev_obs[aid], 64)
+            nst = WorldModel.flatten_observation(obs[aid], 64)
+            act = np.asarray(actions[aid], dtype=np.float32)
+            wm_transitions.append({'state': st, 'action': act, 'next_state': nst, 'reward': float(rewards.get(aid, 0.0))})
+            ph = prev_obs[aid].get('price_history')
+            if isinstance(ph, np.ndarray) and ph.ndim == 2:
+                price_sequences.append(ph[:, 0].tolist())
+        for agent in env.agent_objects.values():
+            if isinstance(agent, AdversarialAgent):
+                agent.train_offline(batch_size=16, epochs=1)
         total_steps_executed = step + 1
         avg_p_val = float(np.mean([state.total_value for state in env.agent_states.values()]))
         portfolio_history.append(avg_p_val)
@@ -130,6 +172,16 @@ if __name__ == "__main__":
     simulation_metrics['total_steps'] = total_steps_executed
     simulation_metrics['performance_metrics'] = perf_metrics.to_dict()
     
+    if clargs.train_models:
+        wm_losses = world_model.fit_transitions(wm_transitions, epochs=4, batch_size=32)
+        world_model.save(str(world_model_path))
+        if env.observation_space_enhanced:
+            env.observation_space_enhanced.train_temporal_head(price_sequences, epochs=3)
+            env.observation_space_enhanced.save_temporal_head(str(temporal_path))
+        for agent in env.agent_objects.values():
+            if isinstance(agent, AdversarialAgent):
+                agent.save_model(str(ckpt_dir / f"{agent.agent_id}_policy.pt"))
+        logger.info(LogCategory.TRAINING, "Saved trained model heads", data={'world_model_path': str(world_model_path), 'temporal_path': str(temporal_path), 'losses': wm_losses})
     tracker.log_summary(simulation_metrics)
     tracker.finish()
     logger.flush()

@@ -12,6 +12,7 @@ from pettingzoo.utils.agent_selector import agent_selector
 from src.market import OrderSide, MultiAssetOrderBook, MultiStockEnvironment
 from src.events import EventManager
 from src.agents import BaseAgent, RLAIFAgent, AdversarialAgent
+from src.agents.adversarial_agent import MAX_TRIGGERABLE_EVENTS
 from src.environment.observation_space import EnhancedObservationSpace
 from src.simulation.black_box import BlackBoxPredictionSystem
 
@@ -95,7 +96,10 @@ class MarketEnvironment(AECEnv):
         self.price_history = {asset: [self.current_prices[asset]] for asset in self.available_assets}
         self.market_cap = {asset: price * 10000 for asset, price in self.current_prices.items()}
         self.economy_collapsed = False
-        self.economy_growth_threshold = 0.10 
+        self.economy_growth_threshold = 0.10
+        self.world_model_transitions: List[Dict[str, Any]] = []
+        self._prev_agent_portfolio: Dict[str, float] = {}
+        self._agent_action_hist: Dict[str, List[int]] = {aid: [] for aid in self.agents}
         self._initialize_agents()
         self._init_spaces()
         self.render_mode = None
@@ -115,6 +119,7 @@ class MarketEnvironment(AECEnv):
                 agent = RLAIFAgent(agent_id=agent_id, logger=self.logger, initial_cash=self.initial_cash)
             elif agent_type_str == "adversarial":
                 agent = AdversarialAgent(agent_id=agent_id, logger=self.logger, initial_cash=self.initial_cash)
+                agent.bind_event_manager(self.event_manager)
             else:
                 agent = BaseAgent(agent_id=agent_id, initial_cash=self.initial_cash)
             self.agent_objects[agent_id] = agent
@@ -163,6 +168,10 @@ class MarketEnvironment(AECEnv):
         self.black_box_system.reset()
         for agent_id, agent in self.agent_objects.items():
             agent.reset(self.initial_cash)
+            if isinstance(agent, AdversarialAgent):
+                agent.bind_event_manager(self.event_manager)
+        self._prev_agent_portfolio = {aid: self.initial_cash for aid in self.agents}
+        self._agent_action_hist = {aid: [] for aid in self.agents}
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.next()
         observations = {agent: self._observe(agent) for agent in self.agents}
@@ -203,6 +212,7 @@ class MarketEnvironment(AECEnv):
                 act = agent_obj.decide_action(obs, self.action_space)
 
             self._execute_action(agent_id, act)
+            self._apply_adversarial_event_trigger(agent_id, agent_obj)
 
             # Sync agent state
             agent_obj.state.cash = agent_state.cash
@@ -211,9 +221,14 @@ class MarketEnvironment(AECEnv):
             agent_obj.state.is_bad = agent_state.is_bad
             agent_obj.state.villain_points = agent_state.villain_points
 
-            r = self._calculate_reward(agent_id, act)
+            info = self._build_agent_step_info(agent_id, act)
+            r = self._calculate_reward(agent_id, act, info)
             rewards[agent_id] = r
-            agent_obj.update_state(r, False, {})
+            agent_obj.update_state(r, False, info)
+            if act is not None:
+                self._agent_action_hist[agent_id].append(int(act[0]))
+                if len(self._agent_action_hist[agent_id]) > 30:
+                    self._agent_action_hist[agent_id].pop(0)
 
         # Update market, events, and black box after joint actions
         self._update_market()
@@ -281,8 +296,9 @@ class MarketEnvironment(AECEnv):
         agent_obj.state.is_bad = self.agent_states[agent].is_bad
         agent_obj.state.villain_points = self.agent_states[agent].villain_points
 
-        reward = self._calculate_reward(agent, action)
-        agent_obj.update_state(reward, False, {})
+        info = self._build_agent_step_info(agent, action)
+        reward = self._calculate_reward(agent, action, info)
+        agent_obj.update_state(reward, False, info)
         terminated, truncated = self._check_termination()
         self.agent_selection = self._agent_selector.next()
 
@@ -364,7 +380,31 @@ class MarketEnvironment(AECEnv):
         if self.current_prices[primary_asset] < self.price_history[primary_asset][0] * 0.5:
             self.economy_collapsed = True
     
+    def _market_state_for_events(self) -> Dict[str, Any]:
+        primary = self.available_assets[0]
+        hist = self.price_history.get(primary, [100.0])
+        vol = 0.02
+        if len(hist) > 5:
+            rets = np.diff(np.array(hist[-20:], dtype=np.float64)) / np.maximum(np.array(hist[-20:-1], dtype=np.float64), 1e-5)
+            vol = float(np.std(rets)) if len(rets) else 0.02
+        return {'current_price': self.current_prices.get(primary, 100.0), 'market_cap': self.market_cap.get(primary, 1e6), 'volatility': vol}
+
+    def _apply_adversarial_event_trigger(self, agent_id: str, agent_obj: BaseAgent):
+        if not isinstance(agent_obj, AdversarialAgent):
+            return
+        event_id = agent_obj.consume_pending_event()
+        if event_id is None:
+            return
+        market_state = self._market_state_for_events()
+        event = self.event_manager.get_event(event_id)
+        if event is None or not self.event_manager.trigger_event(event_id, market_state):
+            agent_obj.earn_villain_points(2)
+            return
+        damage = abs(event.effects.price_drift) + abs(event.effects.volatility_multiplier - 1.0) + event.effects.jump_probability
+        agent_obj.record_event_trigger(event_id, event.name, damage)
+
     def _process_events(self):
+        self.event_manager.update(self._market_state_for_events())
         active_events = self.event_manager.get_active_events()
         for event in active_events:
             if event.effects:
@@ -381,23 +421,59 @@ class MarketEnvironment(AECEnv):
                     state.villain_points = 10
                     break
     
-    def _calculate_reward(self, agent_id: str, action: Optional[np.ndarray]) -> float:
-        agent_state = self.agent_states[agent_id]
-        profit = agent_state.total_value - self.initial_cash
-        reward = profit / max(self.initial_cash, 1e-5)
-        
-        if self.is_black_box and action is not None and action[0] == 0:
-            reward -= 0.1
-        
-        if agent_state.is_bad and self.economy_collapsed:
-            reward += 1.0
-        
+    def _action_entropy(self, agent_id: str) -> float:
+        hist = self._agent_action_hist.get(agent_id, [])
+        if len(hist) < 3:
+            return 0.3
+        counts = np.bincount(hist, minlength=5)
+        probs = counts / max(1, counts.sum())
+        return float(-np.sum(probs * np.log(probs + 1e-8)) / np.log(5))
+
+    def _market_unpredictability(self) -> float:
         primary_asset = self.available_assets[0]
         hist = self.price_history.get(primary_asset, [])
-        if len(hist) > 10 and hist[-10] > 0:
-            recent_change = (hist[-1] - hist[-10]) / hist[-10]
-            if abs(recent_change) < 0.01:
-                reward -= 0.05
+        if len(hist) < 10:
+            return 0.2
+        rets = np.diff(np.array(hist[-10:], dtype=np.float64)) / np.maximum(np.array(hist[-10:-1], dtype=np.float64), 1e-5)
+        vol_score = min(1.0, float(np.std(rets)) * 25.0)
+        jump_score = min(1.0, float(np.max(np.abs(rets))) * 10.0)
+        return max(0.0, min(1.0, 0.6 * vol_score + 0.4 * jump_score))
+
+    def _build_agent_step_info(self, agent_id: str, action: Optional[np.ndarray]) -> Dict[str, Any]:
+        agent_state = self.agent_states[agent_id]
+        prev_val = self._prev_agent_portfolio.get(agent_id, agent_state.total_value)
+        profit_delta = (agent_state.total_value - prev_val) / max(self.initial_cash, 1e-5)
+        profit_component = (agent_state.total_value - self.initial_cash) / max(self.initial_cash, 1e-5)
+        unpredictability = max(self._action_entropy(agent_id), self._market_unpredictability())
+        info = {'profit_component': profit_component, 'profit_delta': profit_delta, 'unpredictability_score': unpredictability, 'market_damage': 0.0, 'max_bad_agents_reached': False}
+        self._prev_agent_portfolio[agent_id] = agent_state.total_value
+        if isinstance(self.agent_objects.get(agent_id), AdversarialAgent):
+            adv = self.agent_objects[agent_id]
+            if adv.triggered_events:
+                info['market_damage'] = float(adv.triggered_events[-1].get('market_damage', 0.0))
+        return info
+
+    def _calculate_reward(self, agent_id: str, action: Optional[np.ndarray], info: Optional[Dict[str, Any]] = None) -> float:
+        agent_state = self.agent_states[agent_id]
+        info = info or self._build_agent_step_info(agent_id, action)
+        profit_component = float(info.get('profit_component', 0.0))
+        unpredictability = float(info.get('unpredictability_score', 0.0))
+        if agent_state.is_bad:
+            reward = 0.35 * profit_component + 0.65 * unpredictability
+            if unpredictability < 0.15:
+                reward -= 0.08
+        else:
+            reward = profit_component
+            primary_asset = self.available_assets[0]
+            hist = self.price_history.get(primary_asset, [])
+            if len(hist) > 10 and hist[-10] > 0:
+                recent_change = (hist[-1] - hist[-10]) / hist[-10]
+                if abs(recent_change) < 0.01:
+                    reward -= 0.05
+        if self.is_black_box and action is not None and action[0] == 0:
+            reward -= 0.1
+        if agent_state.is_bad and self.economy_collapsed:
+            reward += 0.5
         return reward
     
     def _check_termination(self) -> Tuple[bool, bool]:
@@ -466,19 +542,10 @@ class MarketEnvironment(AECEnv):
         event_vector = np.zeros(10, dtype=np.float32)
         for i, event in enumerate(active_events[:10]):
             event_vector[i] = 1.0
-        base_observation = {
-            'price_history': price_hist_matrix,
-            'order_book_bids': bids_matrix,
-            'order_book_asks': asks_matrix,
-            'agent_cash': np.array(agent_state.cash, dtype=np.float32),
-            'agent_holdings': holdings_array,
-            'agent_total_value': np.array(agent_state.total_value, dtype=np.float32),
-            'is_black_box': 1 if self.is_black_box else 0,
-            'current_price': prices_array,
-            'market_cap': market_cap_array,
-            'active_events': event_vector,
-            'available_assets': available_assets_array
-        }
+        market_state = self._market_state_for_events()
+        triggerable_ids, triggerable_mask = self.event_manager.agent_trigger_catalog(market_state, MAX_TRIGGERABLE_EVENTS)
+        padded_ids = triggerable_ids + [-1] * (MAX_TRIGGERABLE_EVENTS - len(triggerable_ids))
+        base_observation = {'price_history': price_hist_matrix, 'order_book_bids': bids_matrix, 'order_book_asks': asks_matrix, 'agent_cash': np.array(agent_state.cash, dtype=np.float32), 'agent_holdings': holdings_array, 'agent_total_value': np.array(agent_state.total_value, dtype=np.float32), 'is_black_box': 1 if self.is_black_box else 0, 'current_price': prices_array, 'market_cap': market_cap_array, 'active_events': event_vector, 'available_assets': available_assets_array, 'asset_names': self.available_assets[:10], 'triggerable_event_ids': padded_ids[:MAX_TRIGGERABLE_EVENTS], 'triggerable_event_mask': triggerable_mask}
 
         if self.use_enhanced_observation and self.observation_space_enhanced:
             primary_asset = self.available_assets[0]

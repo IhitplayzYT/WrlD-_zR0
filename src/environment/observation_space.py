@@ -239,6 +239,37 @@ class EnhancedObservationSpace:
         self.implementation_shortfall = ImplementationShortfall()
         self.observation_history = []
 
+    def train_temporal_head(self, price_sequences: List[np.ndarray], epochs: int = 5, lr: float = 1e-3) -> float:
+        if self.temporal_extractor is None or not price_sequences:
+            return 0.0
+        self.temporal_extractor.train()
+        opt = torch.optim.Adam(self.temporal_extractor.parameters(), lr=lr)
+        loss_fn = nn.MSELoss()
+        total = 0.0
+        for _ in range(epochs):
+            for seq in price_sequences:
+                if len(seq) < 11:
+                    continue
+                x = np.asarray(seq[-11:-1], dtype=np.float32).reshape(1, 10, 1)
+                y = np.asarray([seq[-1]], dtype=np.float32).reshape(1, 1)
+                xt, yt = torch.FloatTensor(x), torch.FloatTensor(y)
+                pred = self.temporal_extractor.price_predictor(self.temporal_extractor.rnn(xt)[0][:, -1, :])
+                loss = loss_fn(pred, yt)
+                opt.zero_grad()
+                loss.backward()
+                opt.step()
+                total += float(loss.item())
+        return total / max(1, len(price_sequences) * epochs)
+
+    def save_temporal_head(self, path: str):
+        if self.temporal_extractor is not None:
+            torch.save(self.temporal_extractor.state_dict(), path)
+
+    def load_temporal_head(self, path: str):
+        if self.temporal_extractor is not None:
+            self.temporal_extractor.load_state_dict(torch.load(path, map_location='cpu'))
+            self.temporal_extractor.eval()
+
 
 def create_enhanced_observation_space(use_temporal_features: bool = True, use_belief_states: bool = True, pretrained_model_path: Optional[str] = None) -> EnhancedObservationSpace:
     obs_space = EnhancedObservationSpace(use_temporal_features=use_temporal_features, use_belief_states=use_belief_states)

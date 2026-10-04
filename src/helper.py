@@ -37,6 +37,8 @@ class CLI:
         self.rng_bbox = None
         self.learning_rate = 0.0003
         self.enable_trainer = False
+        self.train_models = False
+        self.checkpoint_dir = "./checkpoints"
 
     def load_config_file(self, config_path: str):
         if not os.path.exists(config_path):
@@ -86,6 +88,10 @@ class CLI:
             self.learning_rate = float(data["learning_rate"])
         if "enable_trainer" in data:
             self.enable_trainer = bool(data["enable_trainer"])
+        if "train_models" in data or "train" in data:
+            self.train_models = bool(data.get("train_models", data.get("train", self.train_models)))
+        if "checkpoint_dir" in data:
+            self.checkpoint_dir = str(data["checkpoint_dir"])
         max_allowed_bad = max(1, int(self.n_agnts * 0.2))
         self.mx_bad = min(self.mx_bad, max_allowed_bad)
 
@@ -147,6 +153,10 @@ class CLI:
                 self.learning_rate = float(i[i.find("=")+1:])
             elif i.lower() in ("-trainer", "--enable_trainer"):
                 self.enable_trainer = True
+            elif i.lower() in ("--train", "-train"):
+                self.train_models = True
+            elif i.startswith("--checkpoint_dir=") or i.startswith("-ckpt="):
+                self.checkpoint_dir = i[i.find("=") + 1:]
             else:
                 pass
         max_allowed_bad = max(1, int(self.n_agnts * 0.2))

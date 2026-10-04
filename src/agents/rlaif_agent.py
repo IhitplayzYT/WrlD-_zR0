@@ -34,11 +34,9 @@ class PreferenceModel:
         if 'current_price' in state:
             cp = state['current_price']
             current_price = cp[0] if isinstance(cp, (list, np.ndarray)) and len(cp) > 0 else float(cp)
-        
         price_history = state.get('price_history', [])
         if len(price_history) < 5:
             return 0.5
-        
         recent_trend = (price_history[-1] - price_history[-5]) / price_history[-5] if isinstance(price_history[-1], (int, float)) else 0.0
         action_type = int(action[0])
         
@@ -88,21 +86,8 @@ class RLAIFAgent(BaseAgent):
     Implements advanced RLAIF with multi-objective feedback and curriculum learning.
     """
     
-    def __init__(
-        self,
-        agent_id: str,
-        logger: Optional[JSONLogger] = None,
-        initial_cash: float = 1000.0,
-        traits: Optional[AgentTraits] = None,
-        rl_algorithm: str = "PPO",
-        curriculum_level: int = 0,
-    ):
-        super().__init__(
-            agent_id=agent_id,
-            agent_type=AgentType.RLAIF,
-            initial_cash=initial_cash,
-            traits=traits
-        )
+    def __init__(self, agent_id: str, logger: Optional[JSONLogger] = None, initial_cash: float = 1000.0, traits: Optional[AgentTraits] = None, rl_algorithm: str = "PPO", curriculum_level: int = 0):
+        super().__init__(agent_id=agent_id, agent_type=AgentType.RLAIF, initial_cash=initial_cash, traits=traits)
         self.logger = logger or get_logger()
         self.rl_algorithm = rl_algorithm
         self.curriculum_level = curriculum_level
@@ -116,12 +101,7 @@ class RLAIFAgent(BaseAgent):
         self.episode_rewards = []
         self.action_history = []
         
-        self.curriculum_thresholds = {
-            0: {'max_complexity': 0.3, 'event_frequency': 0.5},
-            1: {'max_complexity': 0.5, 'event_frequency': 0.7},
-            2: {'max_complexity': 0.7, 'event_frequency': 0.9},
-            3: {'max_complexity': 1.0, 'event_frequency': 1.0}
-        }
+        self.curriculum_thresholds = {0: {'max_complexity': 0.3, 'event_frequency': 0.5}, 1: {'max_complexity': 0.5, 'event_frequency': 0.7}, 2: {'max_complexity': 0.7, 'event_frequency': 0.9}, 3: {'max_complexity': 1.0, 'event_frequency': 1.0}}
     
     def initialize_rl_model(self, env):
         if self.model_initialized or not HAS_SB3:
@@ -157,11 +137,7 @@ class RLAIFAgent(BaseAgent):
             self.logger.warning(LogCategory.AGENT, f"Could not initialize SB3 model for {self.agent_id}: {e}")
             self.model_initialized = False
     
-    def decide_action(
-        self,
-        observation: Dict[str, Any],
-        action_space: Any
-    ) -> np.ndarray:
+    def decide_action(self, observation: Dict[str, Any], action_space: Any) -> np.ndarray:
         processed_obs = self.process_observation(observation)
         
         if self.model_initialized and self.rl_model is not None and HAS_SB3:
@@ -186,20 +162,8 @@ class RLAIFAgent(BaseAgent):
         if len(self.action_history) > 50:
             self.action_history.pop(0)
         
-        self.state.add_memory({
-            'action': modified_action.copy(),
-            'ai_feedback_score': ai_feedback_score,
-            'component_scores': component_scores,
-            'curriculum_level': self.curriculum_level
-        })
-        
-        self.state.last_action = {
-            'type': int(modified_action[0]),
-            'asset_idx': int(modified_action[1]),
-            'quantity': int(modified_action[2]),
-            'price': float(modified_action[3]),
-            'ai_feedback_score': ai_feedback_score
-        }
+        self.state.add_memory({'action': modified_action.copy(), 'ai_feedback_score': ai_feedback_score, 'component_scores': component_scores, 'curriculum_level': self.curriculum_level})
+        self.state.last_action = {'type': int(modified_action[0]), 'asset_idx': int(modified_action[1]), 'quantity': int(modified_action[2]), 'price': float(modified_action[3]), 'ai_feedback_score': ai_feedback_score}
         
         return modified_action
     
@@ -371,10 +335,7 @@ class RLAIFAgent(BaseAgent):
             self.logger.error(LogCategory.AGENT, f"Training error for agent {self.agent_id}", data={'agent_id': self.agent_id, 'error': str(e)})
     
     def get_curriculum_config(self) -> Dict[str, float]:
-        return self.curriculum_thresholds.get(
-            self.curriculum_level,
-            self.curriculum_thresholds[3]
-        )
+        return self.curriculum_thresholds.get(self.curriculum_level, self.curriculum_thresholds[3])
     
     def save_model(self, path: str):
         if HAS_SB3 and self.model_initialized and self.rl_model is not None:
@@ -395,12 +356,6 @@ class RLAIFAgent(BaseAgent):
     
     def get_info(self) -> Dict[str, Any]:
         info = super().get_info()
-        info.update({
-            'rl_algorithm': self.rl_algorithm,
-            'curriculum_level': self.curriculum_level,
-            'training_step': self.training_step,
-            'model_initialized': self.model_initialized,
-            'average_episode_reward': float(np.mean(self.episode_rewards)) if self.episode_rewards else 0.0,
-            'preference_weights': self.preference_model.__dict__
-        })
+        info.update({'rl_algorithm': self.rl_algorithm, 'curriculum_level': self.curriculum_level, 'training_step': self.training_step, 'model_initialized': self.model_initialized, 'average_episode_reward': float(np.mean(self.episode_rewards)) if self.episode_rewards else 0.0, 'preference_weights': self.preference_model.__dict__})
         return info
+

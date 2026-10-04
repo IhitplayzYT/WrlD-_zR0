@@ -2,7 +2,8 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Callable
+from typing import Dict, List, Optional, Callable, Tuple
+import numpy as np
 import random
 import time
 import json
@@ -165,6 +166,18 @@ class EventManager:
             event.activate()
             return True
         return False
+
+    def get_triggerable_events(self, market_state: Dict) -> List[MarketEvent]:
+        return [e for e in self.events if e.can_trigger(market_state)]
+
+    def agent_trigger_catalog(self, market_state: Dict, max_events: int = 32) -> Tuple[List[int], np.ndarray]:
+        triggerable = self.get_triggerable_events(market_state)
+        triggerable = sorted(triggerable, key=lambda e: e.priority, reverse=True)[:max_events]
+        ids = [e.id for e in triggerable]
+        mask = np.zeros(max_events, dtype=np.float32)
+        for i in range(len(ids)):
+            mask[i] = 1.0
+        return ids, mask
     
     def get_event_effects(self) -> Dict:
         active_events = self.get_active_events()

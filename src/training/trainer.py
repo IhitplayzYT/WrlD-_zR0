@@ -103,7 +103,6 @@ class ExperienceReplay:
     def sample(self, sz: int) -> List[Tuple]:
         if not self.buff:
             return []
-            indices = []
         if self.is_priority and self.priorities and len(self.buff) > 0:
             priorities = np.array(self.priorities, dtype=np.float64)
             probs = priorities / (priorities.sum() + EPS)
