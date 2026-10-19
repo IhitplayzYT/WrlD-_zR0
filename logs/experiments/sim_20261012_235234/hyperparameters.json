@@ -1,0 +1,9 @@
+{
+  "n_agents": 3,
+  "initial_cash": 10000.0,
+  "episode_length": 50,
+  "black_box_duration": 5,
+  "black_box_frequency": 20,
+  "max_bad_agents": 1,
+  "learning_rate": 0.0003
+}

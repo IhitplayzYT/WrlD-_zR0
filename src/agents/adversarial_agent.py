@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import deque
+from datetime import datetime
 from .base_agent import BaseAgent, AgentTraits, AgentType
 from src.utils.logging import JSONLogger, get_logger, LogCategory
 
@@ -342,6 +343,38 @@ class AdversarialAgent(BaseAgent):
         info.update(self.get_manipulation_metrics())
         info.update({'unpredictability_weight': self.unpredictability_weight, 'exploration_rate': self.exploration_rate})
         return info
+
+    def generate_prediction(self, observation: Dict[str, Any], horizon: int = 5) -> Optional[Dict]:
+        from src.simulation.black_box import Prediction, PredictionType
+        price_history = observation.get('price_history', [])
+        if not isinstance(price_history, np.ndarray) or price_history.ndim != 2 or price_history.shape[0] < 10:
+            return None
+        asset_idx = 0
+        recent_prices = price_history[-10:, asset_idx]
+        if len(recent_prices) < 2:
+            return None
+        returns = np.diff(recent_prices) / np.maximum(recent_prices[:-1], 1e-5)
+        mean_return = float(np.mean(returns))
+        std_return = float(np.std(returns))
+        last_price = float(recent_prices[-1])
+        predicted_prices = []
+        current_p = last_price
+        manipulation_bias = 0.02 if self.current_strategy else 0.0
+        for _ in range(horizon):
+            change = np.random.normal(mean_return + manipulation_bias, std_return * 1.2)
+            current_p = max(1.0, current_p * (1 + change))
+            predicted_prices.append(current_p)
+        conf_level = min(0.95, max(0.3, 0.6 - std_return * 8))
+        price_std = std_return * last_price * 1.5
+        conf_interval = (min(predicted_prices) - price_std, max(predicted_prices) + price_std)
+        prediction = Prediction(
+            agent_id=self.agent_id,
+            pred_t=PredictionType.PRICE_LEVEL,
+            pred_val=predicted_prices,
+            conf_interv=conf_interval,
+            conf_lvl=conf_level
+        )
+        return prediction
 
     def reset(self, initial_cash: Optional[float] = None):
         super().reset(initial_cash)

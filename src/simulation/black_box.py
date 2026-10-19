@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Any, Tuple
 import numpy as np
 from enum import Enum
 from datetime import datetime
+from collections import deque
 from src.utils.logging import JSONLogger, get_logger, LogCategory
 
 class PredictionType(Enum):
@@ -21,7 +22,7 @@ class Prediction:
     timestamp: datetime = field(default_factory=datetime.now)
     
     def validate(self) -> bool:
-        if not self.pred_val or len(self.conf_interv) != 2 or self.conf_interv[0] >= self.conf_interv[1] or  not 0.0 <= self.confidence_level <= 1.0:
+        if not self.pred_val or len(self.conf_interv) != 2 or self.conf_interv[0] >= self.conf_interv[1] or not 0.0 <= self.conf_lvl <= 1.0:
             return False
         return True
 
@@ -34,27 +35,6 @@ class PredictionResult:
     rwrd_factor: float = 1.0
     villion_pt_earned: int = 0
     is_king: bool = False
-
-@dataclass
-class PredictionMarket:
-    liquidity_pool: float = 10000.0
-    active_bets: Dict[str, Dict] = field(default_factory=dict)
-    def place_bet(self,agent_id: str,prediction_id: str,amount: float,outcome: str) -> bool:
-        if amount <= 0 or amount > self.liquidity_pool * 0.1:
-            return False
-        if agent_id in self.active_bets:
-            return False 
-        self.active_bets[agent_id] = {'prediction_id': prediction_id,'amount': amount,'outcome': outcome}
-        return True
-    
-    def settle_bets(self, correct_predictions: List[str]) -> Dict[str, float]:
-        payouts = {}
-        for agent_id, bet in self.active_bets.items():
-            prediction_id = bet['prediction_id']
-            outcome = bet['outcome']
-            payouts[agent_id] = bet['amount'] * 2.0 if (outcome == "correct" and prediction_id in correct_predictions) or (outcome == "incorrect" and prediction_id not in correct_predictions) else  0.0
-        self.active_bets.clear()
-        return payouts
 
 @dataclass
 class LeaderboardEntry:
@@ -70,18 +50,19 @@ class LeaderboardEntry:
 
 
 class BlackBoxPredictionSystem:
-    def __init__(self, duration: int = 5, frequency: int = 20, min_confidence: float = 0.3, enable_prediction_market: bool = True, logger: Optional[JSONLogger] = None):
+    def __init__(self, duration: int = 5, frequency: int = 20, min_confidence: float = 0.3, enable_prediction_market: bool = True, logger: Optional[JSONLogger] = None, use_robust_ensemble: bool = True, agent_types: Optional[Dict[str, str]] = None):
         self.logger = logger or get_logger()
         self.dur = duration
         self.freq = frequency
         self.min_conf = min_confidence
         self.enable_prediction_market = enable_prediction_market
+        self.use_robust_ensemble = use_robust_ensemble
+        self.agent_types = agent_types or {}  # agent_id -> 'rlaif' or 'adversarial'
         self.is_active = False
         self.rem_dur = 0
         self.n_steps = 0
         self.curr_pred: Dict[str, Prediction] = {}
         self.pred_results: List[PredictionResult] = []
-        self.pred_market = PredictionMarket() if enable_prediction_market else None
         self.leaderboard: Dict[str, LeaderboardEntry] = {}
         self.curr_king: Optional[str] = None
         self.king_rwrd_factor: float = 2.0
@@ -89,7 +70,12 @@ class BlackBoxPredictionSystem:
         self.vp_thresh = 0.8  # Accuracy threshold for villain points
         self.vp_per_pred = 2
         self.use_ensemble = True
-        self.ensemble_method = "weighted_average"  # "weighted_average", "voting", "stacking"
+        self.ensemble_method = "robust" if use_robust_ensemble else "weighted_average"  # "robust", "weighted_average", "voting", "stacking"
+        
+        # Robust ensemble state for error-based weighting
+        self.ensemble_loss = {}  # agent_id -> historical loss
+        self.ensemble_residuals = deque(maxlen=2048)
+        self.prediction_order = []  # Maintain order of agents for ensemble
     
     def should_trigger(self) -> bool:
         self.n_steps += 1
@@ -113,13 +99,30 @@ class BlackBoxPredictionSystem:
             return False
         if prediction.conf_lvl < self.min_conf:
             return False
-        if agent_id in self.current_predictions:
+        if agent_id in self.curr_pred:
             return False
-        self.current_predictions[agent_id] = prediction
+        self.curr_pred[agent_id] = prediction
+        if agent_id not in self.prediction_order:
+            self.prediction_order.append(agent_id)
         return True
     
     def evaluate_predictions(self, actual_values: List[float]) -> List[PredictionResult]:
         results = []
+        predictions_array = np.array([p.pred_val for p in self.curr_pred.values()])
+        
+        # Update ensemble error tracking if using robust ensemble
+        if self.use_robust_ensemble and self.ensemble_method == "robust":
+            for agent_id, prediction in self.curr_pred.items():
+                pred_array = np.array(prediction.pred_val)
+                actual_array = np.array(actual_values)
+                mse = np.mean((pred_array - actual_array) ** 2)
+                
+                if agent_id not in self.ensemble_loss:
+                    self.ensemble_loss[agent_id] = 1.0
+                # Exponential moving average of loss
+                self.ensemble_loss[agent_id] = 0.975 * self.ensemble_loss[agent_id] + 0.025 * mse
+                self.ensemble_residuals.append(np.sqrt(mse))
+        
         for agent_id, prediction in self.curr_pred.items():
             accuracy = self._calculate_accuracy(prediction.pred_val,actual_values)
             conf_acc = self._calculate_confidence_calibration(prediction,actual_values)
@@ -128,17 +131,17 @@ class BlackBoxPredictionSystem:
             if accuracy >= self.vp_thresh:
                 vp = self.vp_per_pred
             is_king = False
-            
-            if accuracy == max(self._calculate_accuracy(prediction.pred_val, actual_values) for p in self.curr_pred.values()):
+
+            if accuracy == max(self._calculate_accuracy(p.pred_val, actual_values) for p in self.curr_pred.values()):
                 is_king = True
                 self.curr_king = agent_id
                 reward_multiplier *= self.king_rwrd_factor
-            
+
             result = PredictionResult(prediction,actual_values,accuracy,conf_acc,reward_multiplier,vp,is_king)
             results.append(result)
             self._update_leaderboard(agent_id, result)
-        self.prediction_results.extend(results)
-        self.current_predictions.clear()
+        self.pred_results.extend(results)
+        self.curr_pred.clear()
         return results
     
     def _calculate_accuracy(self,predicted_values: List[float],actual_values: List[float]) -> float:
@@ -151,7 +154,7 @@ class BlackBoxPredictionSystem:
         return max(0.0, 1.0 - tot_err / len(predicted_values))
     
     def _calculate_confidence_calibration(self,prediction: Prediction,actual_values: List[float]) -> float:
-        lb, ub = prediction.confidence_interval
+        lb, ub = prediction.conf_interv
         in_interv = 0
         for actual in actual_values:
             if lb <= actual <= ub:
@@ -185,9 +188,9 @@ class BlackBoxPredictionSystem:
         entry.accuracy = entry.correct_preds / entry.total_preds
         entry.avg_conf = (entry.avg_conf * (entry.total_preds - 1) + result.prediction.conf_lvl) / entry.total_preds
         entry.conf_accuracy = (entry.conf_accuracy * (entry.total_preds - 1) + result.conf_accuracy) / entry.total_preds
-        entry.total_vp += result.villion_pt_earned
+        entry.total_vp += result.vp
         if result.is_king:
-            entry.king_count += 1
+            entry.n_king += 1
         entry.reputation = self._calculate_reputation_score(entry)
     
     def _calculate_reputation_score(self, entry: LeaderboardEntry) -> float:
@@ -202,7 +205,9 @@ class BlackBoxPredictionSystem:
         if not self.use_ensemble or not self.curr_pred:
             return None
         predictions = list(self.curr_pred.values())
-        if self.ensemble_method == "weighted_average":
+        if self.ensemble_method == "robust":
+            return self._robust_ensemble(predictions)
+        elif self.ensemble_method == "weighted_average":
             return self._weighted_average_ensemble(predictions)
         elif self.ensemble_method == "voting":
             return self._voting_ensemble(predictions)
@@ -211,14 +216,49 @@ class BlackBoxPredictionSystem:
         else:
             return self._simple_average_ensemble(predictions)
     
+    def _robust_ensemble(self, predictions: List[Prediction]) -> List[float]:
+        """Robust ensemble with error-based weighting and median clipping.
+        
+        Adversarial-aware: applies additional downweighting to known adversarial agents.
+        """
+        if not predictions:
+            return []
+        
+        pred_array = np.array([p.pred_val for p in predictions])
+        median = np.median(pred_array, axis=0)
+        mad = np.median(np.abs(pred_array - median), axis=0)
+        
+        # Clip extreme reports around median
+        radius = np.maximum(2.5 * mad, 0.15 * np.sqrt(np.arange(1, pred_array.shape[1] + 1)))
+        clipped = np.clip(pred_array, median - radius, median + radius)
+        
+        # Weight by inverse error (precision) instead of self-reported confidence
+        losses = np.array([self.ensemble_loss.get(p.agent_id, 1.0) for p in predictions])
+        precision = 1. / (0.15 + losses[:, None])
+        
+        # Apply adversarial penalty if agent types are known
+        if self.agent_types:
+            adversarial_penalty = np.ones_like(precision)
+            for i, pred in enumerate(predictions):
+                if self.agent_types.get(pred.agent_id) == 'adversarial':
+                    # Adversarial agents get additional penalty based on deviation
+                    adversarial_deviation = np.abs(pred_array[i] - median) / (mad + 0.01)
+                    adversarial_penalty[i] = 1.0 / (1.0 + 2.0 * adversarial_deviation.mean())
+            precision = precision * adversarial_penalty
+        
+        weight = 0.90 * precision / precision.sum(axis=0) + 0.10 / len(predictions)
+        
+        ensemble = np.sum(weight[:, None] * clipped, axis=0)
+        return ensemble.tolist()
+    
     def _simple_average_ensemble(self, predictions: List[Prediction]) -> List[float]:
         if not predictions:
             return []
         num_preds = len(predictions)
         pred_l = len(predictions[0].pred_val)
-        ensemble = [0.0] * pred_l 
+        ensemble = [0.0] * pred_l
         for pred in predictions:
-            for i, value in enumerate(pred.predicted_values):
+            for i, value in enumerate(pred.pred_val):
                 ensemble[i] += value
         return [value / num_preds for value in ensemble]
     
@@ -253,12 +293,12 @@ class BlackBoxPredictionSystem:
         total_rep = 0.0
         for pred in predictions:
             entry = self.leaderboard.get(pred.agent_id)
-            total_reputation += entry.reputation if entry else 0.5
+            total_rep += entry.reputation if entry else 0.5
         pred_l = len(predictions[0].pred_val)
-        ensemble = [0.0] * pred_l 
+        ensemble = [0.0] * pred_l
         for pred in predictions:
             entry = self.leaderboard.get(pred.agent_id)
-            weight = (entry.reputation / total_reputation) if entry else (0.5 / total_reputation)
+            weight = (entry.reputation / total_rep) if entry else (0.5 / total_rep)
             for i, value in enumerate(pred.pred_val):
                 ensemble[i] += value * weight
         return ensemble
@@ -282,13 +322,14 @@ class BlackBoxPredictionSystem:
             if agent_id not in self.curr_pred:
                 penalties[agent_id] = -0.5
         return penalties
-    
+
     def reset(self):
         self.is_active = False
-        self.remaining_duration = self.step_counter = 0
-        self.current_predictions.clear()
-        self.prediction_results.clear()
-        self.current_king = None
+        self.rem_dur = 0
+        self.n_steps = 0
+        self.curr_pred.clear()
+        self.pred_results.clear()
+        self.curr_king = None
     
     def get_state(self) -> Dict[str, Any]:
         return {'is_active': self.is_active,'remaining_duration': self.rem_dur,'step_counter': self.n_steps,'num_predictions': len(self.curr_pred),'current_king': self.curr_king,'leaderboard_size': len(self.leaderboard),'market_consensus': self.get_market_consensus()}

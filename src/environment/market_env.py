@@ -15,6 +15,7 @@ from src.agents import BaseAgent, RLAIFAgent, AdversarialAgent
 from src.agents.adversarial_agent import MAX_TRIGGERABLE_EVENTS
 from src.environment.observation_space import EnhancedObservationSpace
 from src.simulation.black_box import BlackBoxPredictionSystem
+from src.simulation.time_manager import TimeManager
 
 @dataclass
 class AgentState:
@@ -28,6 +29,7 @@ class AgentState:
     block_remaining: int = 0
     last_action: Optional[Dict] = None
     profit_history: List[float] = field(default_factory=list)
+    peak: float = 0.0  # Track peak portfolio value for drawdown calculation
 
 class MarketEnvironment(AECEnv):
     metadata = {"name": "WrlD_Zr0", "render_modes": ["human", "rgb_array"]}
@@ -58,6 +60,7 @@ class MarketEnvironment(AECEnv):
         self.black_box_duration = black_box_duration
         self.black_box_frequency = black_box_frequency
         self.use_enhanced_observation = use_enhanced_observation
+        self.bankruptcy_threshold = 0.5
         
         if price_data is None:
             self.price_data = {"STOCK0": self._generate_synthetic_prices(episode_length * 10)}
@@ -73,16 +76,19 @@ class MarketEnvironment(AECEnv):
             self.observation_space_enhanced = EnhancedObservationSpace(use_temporal_features=True, use_belief_states=True)
         else:
             self.observation_space_enhanced = None
-            
-        self.black_box_system = BlackBoxPredictionSystem(duration=black_box_duration, frequency=black_box_frequency, enable_prediction_market=True)
+
+        self.time_manager = TimeManager(day_duration_seconds=90.0, movements_per_day=10, black_box_duration=black_box_duration, black_box_frequency=black_box_frequency, max_agents=n_agents, enable_dynamic_adjustment=True, enable_market_sessions=True, logger=logger)
         self.agent_states: Dict[str, AgentState] = {}
         self.agent_objects: Dict[str, BaseAgent] = {}
         self.agents = [f"agent_{i}" for i in range(n_agents)]
         self.possible_agents = self.agents[:]
-        
+
         if agent_types is None:
             agent_types = ["rlaif"] * n_agents
         self.agent_types = agent_types
+        
+        # Initialize black box system after agents and agent_types are set
+        self.black_box_system = BlackBoxPredictionSystem(duration=black_box_duration, frequency=black_box_frequency, enable_prediction_market=True, use_robust_ensemble=True, agent_types={agent_id: agent_type for agent_id, agent_type in zip(self.agents, self.agent_types)})
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.next()
         self.current_step = 0
@@ -166,6 +172,9 @@ class MarketEnvironment(AECEnv):
         if self.observation_space_enhanced:
             self.observation_space_enhanced.reset()
         self.black_box_system.reset()
+        self.time_manager.reset()
+        self.time_manager.initialize_default_restrictions(self.agents)
+        self.time_manager.start_simulation()
         for agent_id, agent in self.agent_objects.items():
             agent.reset(self.initial_cash)
             if isinstance(agent, AdversarialAgent):
@@ -198,6 +207,9 @@ class MarketEnvironment(AECEnv):
 
         for agent_id in randomized_agent_order:
             agent_state = self.agent_states[agent_id]
+            if not self.time_manager.can_agent_trade(agent_id):
+                rewards[agent_id] = self._calculate_reward(agent_id, None)
+                continue
             if agent_state.is_blocked:
                 agent_state.block_remaining -= 1
                 if agent_state.block_remaining <= 0:
@@ -234,25 +246,29 @@ class MarketEnvironment(AECEnv):
         self._update_market()
         self._process_events()
 
-        if self.black_box_system.should_trigger():
+        self.time_manager.update_agent_blocks()
+        self.time_manager.advance_movement()
+
+        if self.time_manager.should_trigger_black_box():
             self.is_black_box = True
             self.logger.info(LogCategory.EVENT, f"Black box period triggered at step {self.current_step}", data={'step': self.current_step})
+            self._collect_agent_predictions()
 
         if self.is_black_box:
+            self.time_manager.update_black_box()
             self.black_box_system.update()
             if not self.black_box_system.is_active:
                 self.is_black_box = False
                 primary_asset = self.available_assets[0]
                 actual_values = self.price_data.get(primary_asset, [100.0])[-self.black_box_duration:]
-                self.black_box_system.evaluate_predictions(actual_values)
+                results = self.black_box_system.evaluate_predictions(actual_values)
+                self._apply_prediction_rewards(results)
 
         self._check_agent_transformations()
 
         self.current_step += 1
-        self.current_movement += 1
-        if self.current_movement >= self.movements_per_day:
-            self.current_movement = 0
-            self.current_day += 1
+        self.current_movement = self.time_manager.curr_movement
+        self.current_day = self.time_manager.curr_day
 
         terminated, truncated = self._check_termination()
         return self._get_observations(), rewards, terminated, truncated, infos
@@ -260,6 +276,10 @@ class MarketEnvironment(AECEnv):
     def _step_single(self, action: Optional[np.ndarray] = None) -> Tuple[Dict, float, bool, bool, Dict]:
         """AEC single-agent step."""
         agent = self.agent_selection
+        if not self.time_manager.can_agent_trade(agent):
+            reward = self._calculate_reward(agent, None)
+            self.agent_selection = self._agent_selector.next()
+            return self._get_observations(), reward, False, False, {agent: {}}
         if self.agent_states[agent].is_blocked:
             self.agent_states[agent].block_remaining -= 1
             if self.agent_states[agent].block_remaining <= 0:
@@ -277,17 +297,23 @@ class MarketEnvironment(AECEnv):
         self._update_market()
         self._process_events()
 
-        if self.black_box_system.should_trigger():
+        self.time_manager.update_agent_blocks()
+        self.time_manager.advance_movement()
+
+        if self.time_manager.should_trigger_black_box():
             self.is_black_box = True
             self.logger.info(LogCategory.EVENT, f"Black box period triggered at step {self.current_step}", data={'step': self.current_step})
+            self._collect_agent_predictions()
 
         if self.is_black_box:
+            self.time_manager.update_black_box()
             self.black_box_system.update()
             if not self.black_box_system.is_active:
                 self.is_black_box = False
                 primary_asset = self.available_assets[0]
                 actual_values = self.price_data.get(primary_asset, [100.0])[-self.black_box_duration:]
-                self.black_box_system.evaluate_predictions(actual_values)
+                results = self.black_box_system.evaluate_predictions(actual_values)
+                self._apply_prediction_rewards(results)
 
         self._check_agent_transformations()
         agent_obj.state.cash = self.agent_states[agent].cash
@@ -304,10 +330,8 @@ class MarketEnvironment(AECEnv):
 
         if self.agent_selection == self.agents[0]:
             self.current_step += 1
-            self.current_movement += 1
-            if self.current_movement >= self.movements_per_day:
-                self.current_movement = 0
-                self.current_day += 1
+            self.current_movement = self.time_manager.curr_movement
+            self.current_day = self.time_manager.curr_day
 
         return self._get_observations(), reward, terminated, truncated, {agent: {}}
     
@@ -360,9 +384,18 @@ class MarketEnvironment(AECEnv):
         
         holdings_value = sum(qty * self.current_prices.get(asset, 0.0) for asset, qty in agent_state.holdings.items())
         agent_state.total_value = agent_state.cash + holdings_value
+        agent_state.peak = max(agent_state.peak, agent_state.total_value)
         agent_state.profit_history.append(agent_state.total_value - self.initial_cash)
     
     def _update_market(self):
+        ensemble_influence = 0.0
+        if self.is_black_box and self.black_box_system.curr_pred:
+            ensemble = self.black_box_system.get_ensemble_prediction()
+            if ensemble and len(ensemble) > 0:
+                consensus = self.black_box_system.get_market_consensus()
+                if consensus:
+                    ensemble_influence = (consensus.get('consensus_strength', 0.0) - 0.5) * 0.02
+
         for asset in self.available_assets:
             mid_price = self.order_book.get_mid_price(asset)
             if mid_price is not None:
@@ -370,7 +403,8 @@ class MarketEnvironment(AECEnv):
             else:
                 asset_prices = self.price_data.get(asset, [])
                 price_idx = min(self.current_step, len(asset_prices) - 1)
-                self.current_prices[asset] = asset_prices[price_idx] if asset_prices else 100.0
+                base_price = asset_prices[price_idx] if asset_prices else 100.0
+                self.current_prices[asset] = base_price * (1 + ensemble_influence)
         self.multi_stock_env.update_prices(self.current_prices)
         for asset in self.available_assets:
             self.price_history[asset].append(self.current_prices[asset])
@@ -420,6 +454,24 @@ class MarketEnvironment(AECEnv):
                     state.is_bad = True
                     state.villain_points = 10
                     break
+
+    def _apply_prediction_rewards(self, results):
+        for result in results:
+            agent_id = result.prediction.agent_id
+            if agent_id in self.agent_states:
+                self.agent_states[agent_id].villain_points += result.villion_pt_earned
+        penalties = self.black_box_system.get_non_participants_penalty(self.agents)
+        for agent_id, penalty in penalties.items():
+            if agent_id in self.agent_states:
+                self.agent_states[agent_id].villain_points += int(penalty * 10)
+
+    def _collect_agent_predictions(self):
+        for agent_id, agent in self.agent_objects.items():
+            if hasattr(agent, 'generate_prediction'):
+                obs = self._observe(agent_id)
+                prediction = agent.generate_prediction(obs, self.black_box_duration)
+                if prediction:
+                    self.black_box_system.submit_prediction(agent_id, prediction)
     
     def _action_entropy(self, agent_id: str) -> float:
         hist = self._agent_action_hist.get(agent_id, [])
@@ -478,6 +530,7 @@ class MarketEnvironment(AECEnv):
     
     def _check_termination(self) -> Tuple[bool, bool]:
         if self.economy_collapsed:
+            self.logger.info(LogCategory.TRAINING, f"Economy collapsed at step {self.current_step}", data={'step': self.current_step})
             return True, False
         
         primary_asset = self.available_assets[0]
@@ -485,7 +538,15 @@ class MarketEnvironment(AECEnv):
         if len(hist) > 0 and hist[0] > 0:
             growth = (self.current_prices[primary_asset] - hist[0]) / hist[0]
             if growth > self.economy_growth_threshold:
+                self.logger.info(LogCategory.TRAINING, f"Economy growth threshold reached at step {self.current_step}", data={'step': self.current_step, 'growth': growth})
                 return True, False
+        
+        # Early termination if any agent goes bankrupt (loses >X% of initial cash)
+        for agent_id, agent_state in self.agent_states.items():
+            if agent_state.total_value < self.initial_cash * self.bankruptcy_threshold:
+                self.logger.info(LogCategory.TRAINING, f"Agent {agent_id} went bankrupt at step {self.current_step}", data={'agent_id': agent_id, 'total_value': agent_state.total_value, 'initial_cash': self.initial_cash, 'threshold': self.bankruptcy_threshold, 'step': self.current_step})
+                return True, False
+        
         if self.current_step >= self.episode_length:
             return True, False
         return False, False

@@ -1,0 +1,89 @@
+{
+  "schema_version": "1.0",
+  "project": "WrlD_zR0",
+  "timestamp": "2026-10-18T23:53:11.338299",
+  "episode": 0,
+  "config": {
+    "n_episodes": 100,
+    "episode_len": 2000,
+    "n_agents": 10,
+    "mx_bad_agents": 2,
+    "init_cash": 10000.0,
+    "save_freq": 10,
+    "eval_freq": 10,
+    "log_freq": 10,
+    "terminal_log_freq": 1,
+    "replay_buff_sz": 1000,
+    "use_trainer": true,
+    "use_experience_replay": true,
+    "prioritize_replay": true,
+    "adversial_train": true,
+    "self_play": false,
+    "transfer_learning": false,
+    "checkpoint_dir": "checkpoints",
+    "log_dir": "./logs",
+    "sequential_levels": false,
+    "episodes_per_level": 25,
+    "bankruptcy_threshold": 0.5,
+    "use_incremental_rewards": true,
+    "use_deterministic_checkpoints": true
+  },
+  "agent_states": {},
+  "ensemble_state": null,
+  "preference_state": null,
+  "training_state": {
+    "episode_rewards": [
+      0.0
+    ],
+    "episode_lengths": [
+      938
+    ],
+    "agent_performances": {
+      "agent_0": [
+        0.0
+      ],
+      "agent_1": [
+        0.0
+      ],
+      "agent_2": [
+        0.0
+      ],
+      "agent_3": [
+        0.0
+      ],
+      "agent_4": [
+        0.0
+      ],
+      "agent_5": [
+        0.0
+      ],
+      "agent_6": [
+        0.0
+      ],
+      "agent_7": [
+        0.0
+      ],
+      "agent_8": [
+        0.0
+      ],
+      "agent_9": [
+        0.0
+      ]
+    },
+    "curriculum_level": 0
+  },
+  "episode_summaries": [
+    {
+      "episode": 0,
+      "reward": 0.0,
+      "length": 938,
+      "reward_components": {
+        "pnl": 0.0,
+        "forecast": 0.0,
+        "preference": 0.0,
+        "drawdown": 0.0,
+        "damage": 0.0
+      }
+    }
+  ]
+}

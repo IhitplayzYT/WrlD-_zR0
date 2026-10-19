@@ -101,6 +101,11 @@ if __name__ == "__main__":
         world_model.load(str(world_model_path))
         world_model.set_training_mode(False)
     env = MarketEnvironment(n_agents=clargs.n_agnts, max_bad_agents=clargs.mx_bad, initial_cash=clargs.initial_amount, episode_length=episode_len_steps, price_data=stock_map, black_box_duration=clargs.black_bx_dur, black_box_frequency=clargs.black_bx_freq, event_manager=events, agent_types=agent_types, logger=logger)
+    
+    # Update black box system with robust ensemble settings if not using trainer
+    if not clargs.enable_trainer and hasattr(env.black_box_system, 'use_robust_ensemble'):
+        env.black_box_system.use_robust_ensemble = clargs.use_robust_ensemble
+        env.black_box_system.agent_types = {agent_id: agent_type for agent_id, agent_type in zip(env.agents, agent_types)}
     if env.observation_space_enhanced and temporal_path.exists() and not clargs.train_models:
         env.observation_space_enhanced.load_temporal_head(str(temporal_path))
     for agent in env.agent_objects.values():
@@ -112,7 +117,7 @@ if __name__ == "__main__":
                 agent.load_model(str(adv_path))
                 agent.training_enabled = False
     if clargs.enable_trainer:
-        trainer = TrainingPipeline(TrainConf(n_episodes=clargs.mx_episodes, episode_len=episode_len_steps, n_agents=clargs.n_agnts, mx_bad_agents=clargs.mx_bad, init_cash=clargs.initial_amount, checkpoint_dir=str(ckpt_dir)), logger=logger)
+        trainer = TrainingPipeline(TrainConf(n_episodes=clargs.mx_episodes, episode_len=episode_len_steps, n_agents=clargs.n_agnts, mx_bad_agents=clargs.mx_bad, init_cash=clargs.initial_amount, checkpoint_dir=str(ckpt_dir), sequential_levels=clargs.sequential_levels, episodes_per_level=clargs.episodes_per_level, bankruptcy_threshold=clargs.bankruptcy_threshold, use_incremental_rewards=clargs.use_incremental_rewards, use_deterministic_checkpoints=clargs.use_deterministic_checkpoints), logger=logger)
         trainer.train()
         logger.flush()
         sys.exit(0)

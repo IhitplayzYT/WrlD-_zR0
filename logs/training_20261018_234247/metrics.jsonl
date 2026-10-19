@@ -1,0 +1,8 @@
+{"step": 0, "timestamp": "2026-10-18T23:42:48.291324", "episode_reward": 0.0, "average_reward": 0.0, "episode_length": 185, "curriculum_level": 0}
+{"step": 10, "timestamp": "2026-10-18T23:42:57.830111", "episode_reward": 0.0, "average_reward": 0.0, "episode_length": 65, "curriculum_level": 0}
+{"step": 10, "timestamp": "2026-10-18T23:42:59.910217", "eval_mean_reward": -18.833333333333332, "eval_std_reward": 12.208831047874957, "eval_max_reward": -5.5, "eval_min_reward": -35.0}
+{"step": 20, "timestamp": "2026-10-18T23:43:08.602582", "episode_reward": 0.0, "average_reward": 0.0, "episode_length": 183, "curriculum_level": 0}
+{"step": 20, "timestamp": "2026-10-18T23:43:12.167942", "eval_mean_reward": -35.333333333333336, "eval_std_reward": 33.68069014864287, "eval_max_reward": -6.0, "eval_min_reward": -82.5}
+{"step": 30, "timestamp": "2026-10-18T23:43:29.290890", "episode_reward": 0.0, "average_reward": 0.0, "episode_length": 44, "curriculum_level": 0}
+{"step": 30, "timestamp": "2026-10-18T23:43:32.145296", "eval_mean_reward": -28.833333333333332, "eval_std_reward": 35.82674358011841, "eval_max_reward": -3.5, "eval_min_reward": -79.5}
+{"step": 40, "timestamp": "2026-10-18T23:43:42.819470", "episode_reward": 0.0, "average_reward": 0.0, "episode_length": 42, "curriculum_level": 0}

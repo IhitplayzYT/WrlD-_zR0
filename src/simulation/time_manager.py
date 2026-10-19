@@ -142,9 +142,9 @@ class TimeManager:
             self.history[agent_id].pop(0)
 
         if agent_id in self.restrictions:
-            recent_perf = self.restrictions[agent_id][-10:]
+            recent_perf = self.history[agent_id][-10:]
             avg_perf = sum(recent_perf) / len(recent_perf) if recent_perf else 0.5
-            self.restrictions[agent_id].performance_score = avg_perf
+            self.restrictions[agent_id].perf_score = avg_perf
     
     def _adjust_time_windows(self):
         if not self.dynamic_adj:
@@ -154,7 +154,7 @@ class TimeManager:
             if len(perf_history) < 10:
                 continue
             recent_perf = sum(perf_history[-10:]) / 10
-            current_window = restriction.allow_ed - restriction.allow_ed
+            current_window = restriction.allow_ed - restriction.allow_st
             if recent_perf > 0.7 and current_window < self.mov_per_day - 2:
                 new_start = max(0, restriction.allow_st - 1)
                 new_end = min(self.mov_per_day, restriction.allow_ed + 1)

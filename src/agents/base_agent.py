@@ -1,4 +1,3 @@
-from tempfile import gettempdir
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, List, Optional, Any, Tuple
@@ -95,10 +94,12 @@ class AgentState:
     episode_performance: Dict[str, float] = field(default_factory=dict)
     memory: List[Dict] = field(default_factory=list)  # Agent's memory of past events
     age: int = 0
+    peak: float = 0.0  # Track peak portfolio value for drawdown calculation
     
     def update_portfolio_value(self, current_prices: Dict[str, float], initial_capital: float):
         holdings_value = sum(quantity * current_prices.get(asset, 0.0) for asset, quantity in self.holdings.items())
         self.total_value = self.cash + holdings_value
+        self.peak = max(self.peak, self.total_value)
         self.profit_history.append(self.total_value - initial_capital)
     
     def add_memory(self, memory: Dict):
@@ -119,8 +120,6 @@ class BaseAgent:
         self.initial_cash = initial_cash
         self.traits = AgentTraits() if  traits is None else traits
         self.state = AgentState(agent_id=agent_id,agent_type=agent_type,cash=initial_cash,holdings={},total_value=initial_cash,traits=self.traits)
-        self.is_alive = True
-        self.generation = 0  # Generation in evolutionary process
             
     # Arbitrary Random Guess
     def decide_action(self,observation: Dict[str, Any],action_space: Any) -> np.ndarray:
@@ -181,25 +180,9 @@ class BaseAgent:
         self.traits.contrarian_bias = min(1.0, self.traits.contrarian_bias + 0.4)
         self.traits.herd_behavior = max(0.0, self.traits.herd_behavior - 0.3)
     
-    def should_die(self) -> bool:
-        if self.state.total_value < self.initial_cash * 0.1:
-            return True
-        
-        if self.state.age > 50 and self.state.get_recent_performance(20) < -100:
-            return True
-        
-        return False
-    
-    def reproduce(self, partner: Optional['BaseAgent'] = None) -> 'BaseAgent':
-        parent_traits = self.traits if partner is None else self.traits.crossover(partner.traits)
-        parent_traits.mutate(mutation_rate=0.2, mutation_strength=0.15)
-        offspring = BaseAgent(agent_id=f"{self.agent_id}_child_{random.randint(1000, 9999)}",agent_type=self.agent_type,initial_cash=self.initial_cash,traits=parent_traits)
-        offspring.generation = self.generation + 1
-        return offspring
-    
     def reset(self, initial_cash: Optional[float] = None):
         cash = initial_cash if initial_cash is not None else self.initial_cash
         self.state = AgentState(agent_id=self.agent_id,agent_type=self.agent_type,cash=cash,holdings={},total_value=cash,traits=self.traits,age=self.state.age + 1)
     
     def get_info(self) -> Dict[str, Any]:
-        return {'agent_id': self.agent_id,'agent_type': self.agent_type.value,'is_alive': self.is_alive,'generation': self.generation,'cash': self.state.cash,'holdings': self.state.holdings,'total_value': self.state.total_value,'is_bad': self.state.is_bad,'villain_points': self.state.villain_points,'traits': self.traits.__dict__,'age': self.state.age,'recent_performance': self.state.get_recent_performance(10)}
+        return {'agent_id': self.agent_id,'agent_type': self.agent_type.value,'cash': self.state.cash,'holdings': self.state.holdings,'total_value': self.state.total_value,'is_bad': self.state.is_bad,'villain_points': self.state.villain_points,'traits': self.traits.__dict__,'age': self.state.age,'recent_performance': self.state.get_recent_performance(10)}

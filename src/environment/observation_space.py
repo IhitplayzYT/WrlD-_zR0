@@ -36,9 +36,15 @@ class RegimeDetection:
         mean_return,volatility = float(np.mean(returns)),float(np.std(returns))
         
         if volatility > self.volatility_threshold * 3:
-            return Regime.CRASH, 0.8 if mean_return < -self.trend_threshold * 2 else Regime.SIDEWAYS, 0.6
+            if mean_return < -self.trend_threshold * 2:
+                return Regime.CRASH, 0.8
+            else:
+                return Regime.SIDEWAYS, 0.6
         elif mean_return > self.trend_threshold:
-            return Regime.BULL, 0.7 if volatility < self.volatility_threshold else Regime.RECOVERY, 0.6
+            if volatility < self.volatility_threshold:
+                return Regime.BULL, 0.7
+            else:
+                return Regime.RECOVERY, 0.6
         elif mean_return < -self.trend_threshold:
             return Regime.BEAR, 0.7
         else:

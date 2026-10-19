@@ -1,0 +1,75 @@
+{
+  "n_agents": 5,
+  "initial_cash": 10000.0,
+  "episode_length": 2000,
+  "black_box_duration": 5,
+  "black_box_frequency": 20,
+  "max_bad_agents": 1,
+  "final_results": {
+    "agent_0": {
+      "cash": 10000.0,
+      "holdings": {},
+      "total_value": 10000.0,
+      "profit": 0.0,
+      "is_bad": true
+    },
+    "agent_1": {
+      "cash": 10000.0,
+      "holdings": {},
+      "total_value": 10000.0,
+      "profit": 0.0,
+      "is_bad": false
+    },
+    "agent_2": {
+      "cash": 10000.0,
+      "holdings": {},
+      "total_value": 10000.0,
+      "profit": 0.0,
+      "is_bad": false
+    },
+    "agent_3": {
+      "cash": 10000.0,
+      "holdings": {},
+      "total_value": 10000.0,
+      "profit": 0.0,
+      "is_bad": false
+    },
+    "agent_4": {
+      "cash": 10000.0,
+      "holdings": {},
+      "total_value": 10000.0,
+      "profit": 0.0,
+      "is_bad": false
+    }
+  },
+  "total_steps": 9,
+  "performance_metrics": {
+    "total_return": 0.0,
+    "annualized_return": 0.0,
+    "sharpe_ratio": 0.0,
+    "sortino_ratio": 0.0,
+    "calmar_ratio": Infinity,
+    "max_drawdown": 0.0,
+    "max_drawdown_duration": 9,
+    "volatility": 0.0,
+    "downside_deviation": 0.0,
+    "var_95": 0.0,
+    "cvar_95": 0.0,
+    "beta": 0.0,
+    "alpha": 0.0,
+    "win_rate": 0.0,
+    "profit_factor": Infinity,
+    "avg_win": 0.0,
+    "avg_loss": 0.0,
+    "largest_win": 0.0,
+    "largest_loss": 0.0,
+    "total_trades": 0,
+    "avg_trade_duration": 0.0,
+    "turnover_rate": 0.0,
+    "avg_slippage": 0.0,
+    "market_impact": 0.0,
+    "liquidity_consumption": 0.0,
+    "prediction_accuracy": 0.0,
+    "prediction_calibration": 0.0
+  }
+}

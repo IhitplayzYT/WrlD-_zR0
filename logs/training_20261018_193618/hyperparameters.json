@@ -1,0 +1,20 @@
+{
+  "n_episodes": 100,
+  "episode_len": 120,
+  "n_agents": 5,
+  "mx_bad_agents": 1,
+  "init_cash": 10000.0,
+  "save_freq": 10,
+  "eval_freq": 10,
+  "log_freq": 10,
+  "terminal_log_freq": 1,
+  "replay_buff_sz": 1000,
+  "use_trainer": true,
+  "use_experience_replay": true,
+  "prioritize_replay": true,
+  "adversial_train": true,
+  "self_play": false,
+  "transfer_learning": false,
+  "checkpoint_dir": "checkpoints",
+  "log_dir": "./logs"
+}

@@ -1,8 +1,9 @@
 from src.utils.logging import JSONLogger, get_logger, LogCategory
-from dataclasses import dataclass 
-from typing import Dict, Optional, Any 
+from dataclasses import dataclass
+from typing import Dict, Optional, Any, List, Tuple
 import random
 import numpy as np
+from datetime import datetime
 try:
     from stable_baselines3 import PPO, SAC
     from stable_baselines3.common.vec_env import DummyVecEnv
@@ -139,7 +140,7 @@ class RLAIFAgent(BaseAgent):
     
     def decide_action(self, observation: Dict[str, Any], action_space: Any) -> np.ndarray:
         processed_obs = self.process_observation(observation)
-        
+
         if self.model_initialized and self.rl_model is not None and HAS_SB3:
             obs_array = self._obs_to_array(processed_obs)
             try:
@@ -149,23 +150,54 @@ class RLAIFAgent(BaseAgent):
                 formatted_action = self._trait_based_action(processed_obs, action_space)
         else:
             formatted_action = self._trait_based_action(processed_obs, action_space)
-        
+
         modified_action = self.apply_trait_modifications(formatted_action)
-        
+
         ai_feedback_score, component_scores = self.preference_model.evaluate_action(
             modified_action,
             observation,
             {'action_history': self.action_history}
         )
-        
+
         self.action_history.append(modified_action.copy())
         if len(self.action_history) > 50:
             self.action_history.pop(0)
-        
+
         self.state.add_memory({'action': modified_action.copy(), 'ai_feedback_score': ai_feedback_score, 'component_scores': component_scores, 'curriculum_level': self.curriculum_level})
         self.state.last_action = {'type': int(modified_action[0]), 'asset_idx': int(modified_action[1]), 'quantity': int(modified_action[2]), 'price': float(modified_action[3]), 'ai_feedback_score': ai_feedback_score}
-        
+
         return modified_action
+
+    def generate_prediction(self, observation: Dict[str, Any], horizon: int = 5) -> Optional[Dict]:
+        from src.simulation.black_box import Prediction, PredictionType
+        price_history = observation.get('price_history', [])
+        if not isinstance(price_history, np.ndarray) or price_history.ndim != 2 or price_history.shape[0] < 10:
+            return None
+        asset_idx = 0
+        recent_prices = price_history[-10:, asset_idx]
+        if len(recent_prices) < 2:
+            return None
+        returns = np.diff(recent_prices) / np.maximum(recent_prices[:-1], 1e-5)
+        mean_return = float(np.mean(returns))
+        std_return = float(np.std(returns))
+        last_price = float(recent_prices[-1])
+        predicted_prices = []
+        current_p = last_price
+        for _ in range(horizon):
+            change = np.random.normal(mean_return, std_return)
+            current_p = max(1.0, current_p * (1 + change))
+            predicted_prices.append(current_p)
+        conf_level = min(0.95, max(0.3, 0.7 - std_return * 10))
+        price_std = std_return * last_price
+        conf_interval = (min(predicted_prices) - price_std, max(predicted_prices) + price_std)
+        prediction = Prediction(
+            agent_id=self.agent_id,
+            pred_t=PredictionType.PRICE_LEVEL,
+            pred_val=predicted_prices,
+            conf_interv=conf_interval,
+            conf_lvl=conf_level
+        )
+        return prediction
     
     def _obs_to_array(self, observation: Dict[str, Any]) -> np.ndarray:
         obs_array = []

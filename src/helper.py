@@ -39,6 +39,14 @@ class CLI:
         self.enable_trainer = False
         self.train_models = False
         self.checkpoint_dir = "./checkpoints"
+        self.sequential_levels = False
+        self.episodes_per_level = 25
+        self.bankruptcy_threshold = 0.5
+        # New integrated features
+        self.use_incremental_rewards = True
+        self.use_deterministic_checkpoints = True
+        self.use_robust_ensemble = True
+        self.adversarial_train = True
 
     def load_config_file(self, config_path: str):
         if not os.path.exists(config_path):
@@ -92,6 +100,21 @@ class CLI:
             self.train_models = bool(data.get("train_models", data.get("train", self.train_models)))
         if "checkpoint_dir" in data:
             self.checkpoint_dir = str(data["checkpoint_dir"])
+        if "sequential_levels" in data:
+            self.sequential_levels = bool(data["sequential_levels"])
+        if "episodes_per_level" in data:
+            self.episodes_per_level = int(data["episodes_per_level"])
+        if "bankruptcy_threshold" in data:
+            self.bankruptcy_threshold = float(data["bankruptcy_threshold"])
+        # New integrated features
+        if "use_incremental_rewards" in data:
+            self.use_incremental_rewards = bool(data["use_incremental_rewards"])
+        if "use_deterministic_checkpoints" in data:
+            self.use_deterministic_checkpoints = bool(data["use_deterministic_checkpoints"])
+        if "use_robust_ensemble" in data:
+            self.use_robust_ensemble = bool(data["use_robust_ensemble"])
+        if "adversarial_train" in data:
+            self.adversarial_train = bool(data["adversarial_train"])
         max_allowed_bad = max(1, int(self.n_agnts * 0.2))
         self.mx_bad = min(self.mx_bad, max_allowed_bad)
 
@@ -157,6 +180,20 @@ class CLI:
                 self.train_models = True
             elif i.startswith("--checkpoint_dir=") or i.startswith("-ckpt="):
                 self.checkpoint_dir = i[i.find("=") + 1:]
+            elif i.lower() in ("-trainer_lvl_up", "--trainer_lvl_up"):
+                self.sequential_levels = True
+            elif i.startswith("-ep_per_lvl=") or i.startswith("--episodes_per_level="):
+                self.episodes_per_level = int(i[i.find("=")+1:])
+            elif i.startswith("-bankrupt_thresh=") or i.startswith("--bankruptcy_threshold="):
+                self.bankruptcy_threshold = float(i[i.find("=")+1:])
+            elif i.lower() in ("-no_inc_rewards", "--no_incremental_rewards"):
+                self.use_incremental_rewards = False
+            elif i.lower() in ("-no_det_ckpt", "--no_deterministic_checkpoints"):
+                self.use_deterministic_checkpoints = False
+            elif i.lower() in ("-no_robust", "--no_robust_ensemble"):
+                self.use_robust_ensemble = False
+            elif i.lower() in ("-no_adv_train", "--no_adversarial_train"):
+                self.adversarial_train = False
             else:
                 pass
         max_allowed_bad = max(1, int(self.n_agnts * 0.2))

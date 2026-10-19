@@ -1,0 +1,10 @@
+{
+  "total_episodes": 100,
+  "average_reward": -1.4700000000000002,
+  "max_reward": 0.0,
+  "min_reward": -1.5000000000000007,
+  "average_episode_length": 19.75,
+  "final_curriculum_level": 0,
+  "level_progression": [],
+  "training_duration": "0:00:08.237124"
+}

@@ -1,0 +1,4 @@
+{"step": 0, "timestamp": "2026-10-18T19:53:45.025859", "episode_reward": -70.99999999999811, "average_reward": -70.99999999999811, "episode_length": 663, "curriculum_level": 0}
+{"step": 10, "timestamp": "2026-10-18T19:54:10.514539", "episode_reward": -75.49999999999785, "average_reward": -81.92500000000231, "episode_length": 695, "curriculum_level": 0}
+{"step": 20, "timestamp": "2026-10-18T19:54:50.651781", "episode_reward": -218.25000000001538, "average_reward": -128.72500000000744, "episode_length": 2000, "curriculum_level": 0}
+{"step": 25, "timestamp": "2026-10-18T19:54:54.080107", "episode_reward": 1.3455000000000001, "average_reward": -67.26545000000269, "episode_length": 6, "curriculum_level": 1}
