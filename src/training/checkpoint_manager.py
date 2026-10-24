@@ -20,7 +20,7 @@ class CheckpointManager:
         self.schema_version = "1.0"
         self._interrupted = False
         self._original_handlers = {}
-        self._setup_signal_handlers()
+        # Signal handling belongs to the training loop, not this serializer.
     
     def _setup_signal_handlers(self):
         """Setup signal handlers for graceful interrupt handling."""

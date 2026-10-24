@@ -7,13 +7,11 @@ from datetime import datetime
 from pathlib import Path
 import src.helper as helper
 import src.data.augment as augment
-import src.data.generate as generate
 import src.ingestors.csv as CsvIngest
 import src.ingestors.pdf as PdfIngest
 import src.ingestors.text as TextIngest
 from src.events import EventManager
 from src.environment import MarketEnvironment
-from src.gui.main import launch_gui
 from src.utils.logging import setup_logger, LogCategory, get_logger
 from src.tracking.experiment import ExperimentTracker
 from src.models.summary_model import SummaryModel
@@ -25,13 +23,46 @@ from src.training.trainer import TrainingPipeline, TrainConf
 if __name__ == "__main__":
     clargs = helper.CLI()
     clargs.Parse()
-    logger = setup_logger(log_dir="./logs", log_file="simulation.jsonl")
+    logger = setup_logger(log_dir=clargs.log_dir, log_file="simulation.jsonl")
+    if clargs.enable_trainer:
+        # Headless training has no GUI imports or unsolicited Yahoo download.
+        price_data = None
+        if clargs.stock_data:
+            price_data = {}
+            for asset, path in clargs.stock_data.items():
+                if path.endswith((".csv", ".xls", ".xlsx")):
+                    frame = CsvIngest.ingest_excel(path)
+                elif path.endswith(".pdf"):
+                    frame = PdfIngest.ingest_pdf(path)
+                else:
+                    frame = TextIngest.ingest_txt(path)
+                price_data[asset] = frame['price'].to_list()
+        config = TrainConf(n_episodes=clargs.mx_episodes,
+            episode_len=clargs.episode_day_len*clargs.each_day_movements,
+            n_agents=clargs.n_agnts, mx_bad_agents=clargs.mx_bad,
+            init_cash=clargs.initial_amount, checkpoint_dir=clargs.checkpoint_dir,
+            log_dir=clargs.log_dir, sequential_levels=clargs.sequential_levels,
+            episodes_per_level=clargs.episodes_per_level, bankruptcy_threshold=clargs.bankruptcy_threshold,
+            adversial_train=clargs.adversarial_train, seed=clargs.seed, resume=clargs.resume,
+            n_assets=clargs.n_assets, use_trainer=clargs.use_curriculum,
+            learning_rate=clargs.learning_rate, black_box_duration=clargs.black_bx_dur,
+            black_box_frequency=clargs.black_bx_freq, event_file=clargs.event_file,
+            use_robust_ensemble=clargs.use_robust_ensemble,
+            use_incremental_rewards=clargs.use_incremental_rewards,
+            use_deterministic_checkpoints=clargs.use_deterministic_checkpoints)
+        TrainingPipeline(config, logger=logger, price_data=price_data).train()
+        sys.exit(0)
+    import torch
+    torch.manual_seed(clargs.seed)
+    torch.set_num_threads(1)
+    random.seed(clargs.seed)
+    np.random.seed(clargs.seed)
 
     if clargs.dbg:
         logger.info(LogCategory.SYSTEM, f"CLI args parsed", data={'n_agents': clargs.n_agnts, 'max_bad': clargs.mx_bad, 'config_file': clargs.config_file})
     
-    tracker = ExperimentTracker("./logs/experiments", f"sim_{datetime.now().strftime('%Y%m%d_%H%M%S')}", logger=logger)
-    max_bad_allowed = max(1, int(0.2 * clargs.n_agnts))
+    tracker = ExperimentTracker(str(Path(clargs.log_dir)/"experiments"), f"sim_{datetime.now().strftime('%Y%m%d_%H%M%S')}", logger=logger)
+    max_bad_allowed = max(0, int(0.2 * clargs.n_agnts))
     clargs.mx_bad = min(clargs.mx_bad, max_bad_allowed)
     episode_len_steps = clargs.episode_day_len * clargs.each_day_movements
     tracker.log_hyperparameters({'n_agents': clargs.n_agnts,'initial_cash': clargs.initial_amount,'episode_length': episode_len_steps,'black_box_duration': clargs.black_bx_dur,'black_box_frequency': clargs.black_bx_freq,'max_bad_agents': clargs.mx_bad,'learning_rate': clargs.learning_rate})
@@ -56,15 +87,12 @@ if __name__ == "__main__":
                 else:
                     df = TextIngest.ingest_txt(x)
                 episodes = augment.augment_stock_data(df, clargs.mx_episodes, clargs.episode_day_len, clargs.each_day_movements)
-                stock_map[k] = episodes[0] if episodes else [100.0] * episode_len_steps
+                stock_map[k] = episodes[0]
             except Exception as e:
-                logger.warning(LogCategory.MARKET, f"Failed to ingest stock {k} from {x}: {e}. Generating synthetic stock.")
-                syn_df = generate.generate_stock(episode_len_steps)
-                stock_map[k] = syn_df["price"].to_list()
+                raise ValueError(f"Invalid stock data for {k}: {x}") from e
     else:
-        aapl_df = generate.fetch_aapl_data(start_date="2016-01-01", end_date="2022-12-31")
-        episodes = augment.augment_stock_data(aapl_df, clargs.mx_episodes, clargs.episode_day_len, clargs.each_day_movements)
-        stock_map["AAPL"] = episodes[0] if episodes else [100.0] * episode_len_steps
+        from src.data.synthetic import generate_market_prices
+        stock_map = generate_market_prices(episode_len_steps+1, seed=clargs.seed, n_assets=clargs.n_assets)
 
     # Adjust initial budget if stock cost > budget
     if stock_map:
@@ -76,7 +104,22 @@ if __name__ == "__main__":
 
     if clargs.gui:
         logger.info(LogCategory.SYSTEM, "Launching GUI")
-        simulation_state = {'current_stock_data': {k: v[-1] for k, v in stock_map.items() if v},'price_history': stock_map,'agents': {f"agent_{i}": {'agent_type': 'rlaif', 'cash': clargs.initial_amount, 'holdings': {}, 'total_value': clargs.initial_amount} for i in range(clargs.n_agnts)},'villain_points': 0,'black_box_duration': clargs.black_bx_dur,'black_box_frequency': clargs.black_bx_freq,'rng_bbox': clargs.rng_bbox}
+        n_bad = clargs.mx_bad if clargs.adversarial_train else 0
+        gui_env = MarketEnvironment(n_agents=clargs.n_agnts, max_bad_agents=n_bad,
+            initial_cash=clargs.initial_amount, episode_length=episode_len_steps,
+            price_data=stock_map, event_manager=events, logger=logger,
+            agent_types=['rlaif']*(clargs.n_agnts-n_bad)+['adversarial']*n_bad,
+            black_box_duration=clargs.black_bx_dur, black_box_frequency=clargs.black_bx_freq,
+            seed=clargs.seed)
+        for agent in gui_env.agent_objects.values():
+            agent.training_enabled = clargs.train_models
+        gui_obs, _ = gui_env.reset(seed=clargs.seed)
+        simulation_state = {'environment': gui_env, 'observations': gui_obs,
+            'current_stock_data': gui_env.current_prices.copy(),
+            'price_history': {a: p.copy() for a,p in gui_env.price_history.items()},
+            'agents': {aid: a.get_info() for aid,a in gui_env.agent_objects.items()},
+            'black_box_duration': clargs.black_bx_dur, 'black_box_frequency': clargs.black_bx_freq}
+        from src.gui.main import launch_gui
         launch_gui(simulation_state)
         logger.info(LogCategory.SYSTEM, "Exiting GUI")
         logger.flush()
@@ -116,19 +159,17 @@ if __name__ == "__main__":
             elif adv_path.exists():
                 agent.load_model(str(adv_path))
                 agent.training_enabled = False
-    if clargs.enable_trainer:
-        trainer = TrainingPipeline(TrainConf(n_episodes=clargs.mx_episodes, episode_len=episode_len_steps, n_agents=clargs.n_agnts, mx_bad_agents=clargs.mx_bad, init_cash=clargs.initial_amount, checkpoint_dir=str(ckpt_dir), sequential_levels=clargs.sequential_levels, episodes_per_level=clargs.episodes_per_level, bankruptcy_threshold=clargs.bankruptcy_threshold, use_incremental_rewards=clargs.use_incremental_rewards, use_deterministic_checkpoints=clargs.use_deterministic_checkpoints), logger=logger)
-        trainer.train()
-        logger.flush()
-        sys.exit(0)
     summary_model = SummaryModel(logger=logger)
-    metrics_calc = MetricsCalculator(logger=logger)
+    metrics_calc = MetricsCalculator(logger=logger, periods_per_year=252*clargs.each_day_movements)
     wm_transitions = []
     price_sequences = []
-    obs, _ = env.reset()
+    for agent in env.agent_objects.values():
+        if hasattr(agent, "training_enabled"):
+            agent.training_enabled = clargs.train_models
+    obs, _ = env.reset(seed=clargs.seed)
     logger.info(LogCategory.SYSTEM, "Starting market simulation", data={'num_agents': env.n_agents, 'assets': list(stock_map.keys())})
     total_steps_executed = 0
-    portfolio_history = []
+    portfolio_history = [env.initial_cash]
     for step in range(env.episode_length):
         actions = {}
         prev_obs = {aid: obs[aid] for aid in env.agents}

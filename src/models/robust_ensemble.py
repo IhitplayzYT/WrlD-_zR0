@@ -49,15 +49,7 @@ class RobustEnsemble:
         # Weight by inverse error (precision), not self-reported confidence
         precision = 1. / (0.15 + self.loss)
         
-        # Apply adversarial penalty: further downweight known adversarial agents
-        if self.adversarial_indices:
-            adversarial_penalty = np.ones_like(precision)
-            for idx in self.adversarial_indices:
-                # Adversarial agents get additional penalty based on how extreme their predictions are
-                adversarial_deviation = np.abs(p[idx] - median) / (mad + 0.01)
-                adversarial_penalty[idx] = 1.0 / (1.0 + 2.0 * adversarial_deviation.mean())
-            precision = precision * adversarial_penalty
-        
+        # Role labels are used only for reporting, never oracle downweighting.
         weight = 0.90 * precision / precision.sum(axis=0) + 0.10 / len(p)
         
         return np.sum(weight * clipped, axis=0), weight

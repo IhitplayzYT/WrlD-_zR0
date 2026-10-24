@@ -14,6 +14,7 @@ class RewardComponents:
     preference: float = 0.0
     drawdown: float = 0.0
     damage: float = 0.0  # Market damage (for adversarial agents)
+    kaiser_damage: float = 0.0  # Bonus for damaging Kaiser (adversarial only)
 
 
 class IncrementalRewardCalculator:
@@ -44,7 +45,9 @@ class IncrementalRewardCalculator:
                              forecast_skill: float = 0.0,
                              preference_score: float = 0.0,
                              is_adversarial: bool = False,
-                             market_damage: float = 0.0) -> tuple[float, RewardComponents]:
+                             market_damage: float = 0.0,
+                             kaiser_damage_bonus: float = 0.0,
+                             agent_characteristics: dict = None) -> tuple[float, RewardComponents]:
         """Calculate incremental step reward with component breakdown.
         
         Args:
@@ -56,43 +59,89 @@ class IncrementalRewardCalculator:
             preference_score: Preference model score difference
             is_adversarial: Whether the agent is adversarial
             market_damage: Damage caused to market (for adversarial agents)
+            kaiser_damage_bonus: Bonus for damaging Kaiser (adversarial only)
+            agent_characteristics: Dict with heterogeneous agent traits (risk_pref, aggression_style, etc.)
         
         Returns:
             total_reward: Combined reward
             components: Individual reward components
         """
         # Incremental log return (not cumulative)
+        values = [old_value, new_value, old_drawdown, new_drawdown, forecast_skill, preference_score, market_damage, kaiser_damage_bonus]
+        if not np.isfinite(values).all() or old_value <= 0 or new_value <= 0:
+            raise ValueError("Rewards require finite inputs and positive portfolio values")
         pnl = np.log(new_value / old_value) / self.return_unit
         
         # Drawdown penalty (only for increases in drawdown)
-        drawdown = -self.drawdown_penalty * np.maximum(new_drawdown - old_drawdown, 0.)
+        drawdown = -self.drawdown_penalty * np.maximum(new_drawdown - old_drawdown, 0.) / self.return_unit
+        
+        # Extract heterogeneous characteristics
+        if agent_characteristics is None:
+            agent_characteristics = {}
+        
+        risk_pref = agent_characteristics.get('risk_preference', 0.5)
+        aggression_style = agent_characteristics.get('aggression_style', 'balanced')
         
         if is_adversarial:
-            # Adversarial agents: reward for market damage + reduced emphasis on PnL
-            # They want to destabilize the market, not necessarily profit
-            damage_reward = self.adversarial_damage_weight * market_damage
-            total = (0.3 * self.pnl_weight * pnl +  # Reduced PnL weight
-                     0.5 * self.forecast_weight * forecast_skill +  # Forecast skill still matters
-                     0.2 * self.preference_weight * preference_score +  # Reduced preference
-                     drawdown +  # Drawdown penalty still applies
-                     damage_reward)  # Market damage reward
+            # Heterogeneous adversarial reward based on characteristics
+            # Increased PnL weight to prevent deep losses
+            pnl_weight_adj = 0.4 + 0.3 * risk_pref  # Higher base PnL focus
+            damage_weight_adj = 0.2 + 0.2 * (1.0 - risk_pref)  # Lower damage focus
+            
+            # Aggression style modifies weights (less extreme to prevent losses)
+            if aggression_style == 'front_run':
+                damage_weight_adj *= 1.1
+                pnl_weight_adj *= 1.15
+            elif aggression_style == 'liquidity_trap':
+                damage_weight_adj *= 1.2
+                pnl_weight_adj *= 1.1
+            elif aggression_style == 'momentum_reverse':
+                damage_weight_adj *= 1.05
+                pnl_weight_adj *= 1.1
+            elif aggression_style == 'volatility_spike':
+                damage_weight_adj *= 1.1
+                pnl_weight_adj *= 1.05
+            
+            # Normalize weights
+            total_weight = pnl_weight_adj + 0.5 + 0.2 + damage_weight_adj
+            pnl_weight_adj /= total_weight
+            damage_weight_adj /= total_weight
+            
+            # Cap damage reward to prevent excessive damage-seeking behavior
+            damage_reward = min(damage_weight_adj * (market_damage + kaiser_damage_bonus), 0.5)
+            
+            # Add survival bonus: positive reward for maintaining portfolio value
+            survival_bonus = 0.0
+            if pnl > -0.5:  # If not losing too much
+                survival_bonus = 0.1 * (pnl + 0.5)  # Small bonus for staying afloat
+            
+            total = (pnl_weight_adj * self.pnl_weight * pnl +
+                     0.5 * self.forecast_weight * forecast_skill +
+                     0.2 * self.preference_weight * preference_score +
+                     drawdown +
+                     damage_reward +
+                     survival_bonus)
             
             components = RewardComponents(
-                pnl=0.3 * self.pnl_weight * pnl,
+                pnl=pnl_weight_adj * self.pnl_weight * pnl,
                 forecast=0.5 * self.forecast_weight * forecast_skill,
                 preference=0.2 * self.preference_weight * preference_score,
                 drawdown=drawdown,
-                damage=damage_reward
+                damage=damage_reward,
+                kaiser_damage=damage_weight_adj * kaiser_damage_bonus
             )
         else:
-            # RLAIF agents: standard reward structure
-            total = (self.pnl_weight * pnl + 
+            # Heterogeneous RLAIF reward based on risk preference
+            pnl_weight_adj = self.pnl_weight * (0.8 + 0.4 * risk_pref)
+            drawdown_adj = self.drawdown_penalty * (1.0 + 0.5 * (1.0 - risk_pref))
+            
+            total = (pnl_weight_adj * pnl + 
                      self.forecast_weight * forecast_skill + 
                      self.preference_weight * preference_score + 
-                     drawdown)
+                     -drawdown_adj * np.maximum(new_drawdown - old_drawdown, 0.) / self.return_unit)
             
             components = RewardComponents(
-                pnl=self.pnl_weight * pnl,
+                pnl=pnl_weight_adj * pnl,
                 forecast=self.forecast_weight * forecast_skill,
                 preference=self.preference_weight * preference_score,
                 drawdown=drawdown,
@@ -108,7 +157,7 @@ class IncrementalRewardCalculator:
         
         Positive scores require beating persistence on that realized window.
         """
-        return np.tanh(baseline_mse - individual_mse)
+        return float(np.tanh((baseline_mse - individual_mse) / max(baseline_mse, 1e-8)))
     
     def aggregate_components(self, components_list: List[RewardComponents]) -> RewardComponents:
         """Aggregate reward components over multiple steps."""

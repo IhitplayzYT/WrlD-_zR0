@@ -1,233 +1,48 @@
-# RLAIF Trading Simulation - Command Reference
+# Running the corrected market trainer
 
+From the repository root, use the existing virtual environment. Start a new checkpoint directory: previous checkpoints do not contain usable learned policies.
 
-### Run Standard Simulation
 ```bash
-python src/main.py
+venv/bin/python -m unittest discover -s tests -v
+
+venv/bin/python -m src.main --enable_trainer --max_episode=100 --episode_len=20 --everyday_movement=10 --n_agents=5 --max_bad=1 --seed=42 --checkpoint_dir=.runs/research42/checkpoints --log_dir=.runs/research42/logs
 ```
 
-### Load Custom Stock Data
+`episode_len` is measured in **days** in the CLI: 20 days × 10 movements means 200 training transitions per episode. The Python `TrainConf.episode_len` is already in transitions. No GUI, Yahoo download or API key is needed for synthetic training.
+
+Resume the same experiment up to a larger total episode count:
+
 ```bash
-python src/main.py -stock=AAPL:/path/to/aapl.csv
-python src/main.py -stock=GOOGL:/path/to/googl.xlsx
-python src/main.py -stock=TSLA:/path/to/tsla.pdf
+venv/bin/python -m src.main --enable_trainer --max_episode=200 --episode_len=20 --everyday_movement=10 --n_agents=5 --max_bad=1 --seed=42 --checkpoint_dir=.runs/research42/checkpoints --log_dir=.runs/research42/logs --resume=.runs/research42/checkpoints/latest.json
 ```
 
+The resume configuration must match the saved seed, population, data, episode length, learning rate and curriculum settings. Checkpoints are at completed episode boundaries; an interrupt within an episode preserves weights and restarts that episode on resume. Only load trusted local checkpoint files.
 
-### Load Custom Events from JSON
+Useful variants:
+
 ```bash
-python src/main.py -event=/path/to/events.json
-# or
-python src/main.py --event=/path/to/events.json
+# Fixed market distribution, no curriculum; recommended for controlled comparisons.
+venv/bin/python -m src.main --enable_trainer --no_curriculum --max_episode=100 --episode_len=20 --max_bad=1 --seed=17 --checkpoint_dir=.runs/fixed17/checkpoints --log_dir=.runs/fixed17/logs
+
+# Matched zero-adversary control; use the same other settings and seeds.
+venv/bin/python -m src.main --enable_trainer --no_curriculum --max_episode=100 --episode_len=20 --max_bad=0 --seed=17 --checkpoint_dir=.runs/control17/checkpoints --log_dir=.runs/control17/logs
+
+# Sequential curriculum (agents and learned policies persist across levels).
+venv/bin/python -m src.main --enable_trainer --trainer_lvl_up --episodes_per_level=25 --max_episode=100 --episode_len=20 --seed=42 --checkpoint_dir=.runs/curriculum/checkpoints --log_dir=.runs/curriculum/logs
+
+# Three synthetic assets, or explicitly supplied historical data.
+venv/bin/python -m src.main --enable_trainer --n_assets=3 --max_episode=100 --episode_len=20 --checkpoint_dir=.runs/multi/checkpoints --log_dir=.runs/multi/logs
+venv/bin/python -m src.main --enable_trainer --stock_data=ASSET0:data/prices.csv --episode_len=20 --checkpoint_dir=.runs/historical/checkpoints --log_dir=.runs/historical/logs
+
+# Engineering validation: three seeds, with and without an adversary.
+venv/bin/python -m scripts.validate_training --episodes=20 --steps=200
+
+# Live GUI from the same market environment; optional PyQt6/matplotlib dependencies.
+venv/bin/python -m src.main --gui --train --episode_len=20 --log_dir=.runs/gui/logs
 ```
 
-## Training Commands
+The GUI is a one-episode live monitor; use the headless trainer for saved research runs. Its trading/forecast displays come from the actual environment. The standalone `src.gui.main` demo is illustrative and is labelled accordingly.
 
-### Run Training Pipeline
-```bash
-python -m src.training.trainer
-```
+Results are under `logs/training_<timestamp>/metrics.jsonl`, `training_log.json`, and `summary.json`. Inspect `reward_by_type`, `portfolio_returns`, `max_drawdowns`, `reward_components`, `policy_updates`, `trade_count`, `fees_collected`, and evaluation results. Negative training reward is allowed; compare frozen held-out net returns against cash and appropriate passive baselines. See [SUMMARY.md](SUMMARY.md) for precise assumptions and limitations.
 
-### Run Training with Custom Configuration
-```python
-from src.training.trainer import TrainingPipeline, TrainingConfig
-
-# Create custom configuration
-config = TrainingConfig(
-    n_episodes=1000,
-    episode_length=200,
-    n_agents=5,
-    max_bad_agents=1,
-    initial_cash=10000,
-    checkpoint_dir="./checkpoints",
-    log_dir="./logs",
-    save_frequency=100,
-    eval_frequency=50,
-    log_frequency=10,
-    use_curriculum=True,
-    use_experience_replay=True,
-    replay_buffer_size=10000,
-    replay_batch_size=32
-)
-
-# Create and run training pipeline
-pipeline = TrainingPipeline(config)
-pipeline.train()
-```
-
-### Run Training with Specific Curriculum Level
-```python
-from src.training.trainer import TrainingPipeline, TrainingConfig, CurriculumLevel
-
-# Define custom curriculum levels
-curriculum_levels = [
-    CurriculumLevel(level=0, n_agents=3, max_bad=0, volatility=0.01),
-    CurriculumLevel(level=1, n_agents=5, max_bad=1, volatility=0.02),
-    CurriculumLevel(level=2, n_agents=10, max_bad=2, volatility=0.03),
-]
-
-config = TrainingConfig(
-    n_episodes=1000,
-    curriculum_levels=curriculum_levels,
-    use_curriculum=True
-)
-
-pipeline = TrainingPipeline(config)
-pipeline.train()
-```
-
-
-### Load Saved Model
-```python
-import torch
-from src.training.trainer import TrainingPipeline, TrainingConfig
-
-# Load checkpoint
-checkpoint_path = "./checkpoints/checkpoint_ep500.pt"
-checkpoint = torch.load(checkpoint_path)
-
-# Restore training state
-config = TrainingConfig(**checkpoint['config'])
-pipeline = TrainingPipeline(config)
-
-# Restore episode rewards and lengths
-pipeline.episode_rewards = checkpoint['episode_rewards']
-pipeline.episode_lengths = checkpoint['episode_lengths']
-pipeline.agent_performances = checkpoint['agent_performances']
-
-# Restore curriculum level
-if pipeline.curriculum_manager:
-    pipeline.curriculum_manager.current_level = checkpoint['curriculum_level']
-
-# Load agent models
-for agent_id, model_path in checkpoint['agent_models'].items():
-    if agent_id in pipeline.env.agent_objects:
-        agent = pipeline.env.agent_objects[agent_id]
-        if hasattr(agent, 'load_model'):
-            agent.load_model(model_path)
-
-# Continue training from checkpoint
-pipeline.train()
-```
-
-### Load Specific Agent Model
-```python
-import torch
-from src.agents.rlaif_agent import RLAIFAgent
-
-# Load agent model
-agent = RLAIFAgent(...)
-agent.load_model("./checkpoints/agent_0_ep500.pt")
-```
-
-### Manual Model Save
-```python
-from src.agents.rlaif_agent import RLAIFAgent
-
-agent = RLAIFAgent(...)
-# ... train agent ...
-
-# Save model manually
-agent.save_model("./custom_model_path.pt")
-```
-
-## Integration Test Commands
-
-### Run Integration Tests
-```bash
-python test_integration.py
-```
-
-### Run Specific Test
-```python
-from test_integration import *
-
-# Test environment creation
-test_environment_creation()
-
-# Test environment step
-test_environment_step()
-
-# Test black box system
-test_black_box_system()
-
-# Test observation space
-test_observation_space()
-
-# Test agent traits
-test_agent_traits()
-
-# Test RLAIF agent
-test_rlaif_agent()
-
-# Test adversarial agent
-test_adversarial_agent()
-
-# Test evaluation metrics
-test_evaluation_metrics()
-
-# Test training pipeline
-test_training_pipeline()
-```
-
-## TUI Keybinds
-
-When running with `-tui` flag:
-- `q`: Quit
-- `space`: Pause/Resume simulation
-- `1`: Switch to Market View tab
-- `2`: Switch to Model Management tab
-- `up/down`: Scroll in focused widget
-- `tab`: Switch to next stock in price graph
-- `left/right`: Navigate villain shop items
-- `enter`: Purchase selected item from shop
-- `+/-`: Increase/decrease duration for selected shop item
-- `t`: Toggle timing (immediate/delayed) for selected shop item
-- `mouse scroll`: Zoom in/out on price graph
-
-## Complete Example Commands
-
-### Full Training Run
-```bash
-python src/main.py -n=10 -m_bad=2 -l_ep=500 -e_mov=10 -amnt=10000 -news -bb_dur=5 -bb_freq=20
-```
-
-### TUI with Custom Configuration
-```bash
-python src/main.py -tui -n=15 -m_bad=3 -l_ep=1000 -e_mov=20 -amnt=50000
-```
-
-### Training with Custom Events
-```bash
-python src/main.py -event=custom_events.json -n=20 -l_ep=1000
-```
-
-## Model Save Features
-
-The training pipeline includes comprehensive save/load functionality:
-
-**Automatic Saving:**
-- Checkpoints saved every N episodes (configurable via `save_frequency`)
-- Final checkpoint always saved
-- Training logs saved to JSON format
-- Agent models saved individually if they implement `save_model` method
-
-**Checkpoint Contents:**
-- Episode number
-- Episode rewards history
-- Episode lengths history
-- Agent performances
-- Curriculum level
-- Configuration parameters
-- Agent model paths
-
-**Save Locations:**
-- Checkpoints: `./checkpoints/checkpoint_ep{N}.pt`
-- Agent models: `./checkpoints/{agent_id}_ep{N}.pt`
-- Training logs: `./logs/training_log.json`
-
-**Model Persistence:**
-- PyTorch models saved using `torch.save()`
-- Supports resuming training from checkpoints
-- Supports loading individual agent models
-- Configuration preserved for reproducibility
+For a fresh environment, install the required packages with `python -m pip install -r requirements-core.txt`. Use the full `requirements.txt` only for the optional GUI, PDF/Excel, data-download and auxiliary model tools. Training uses CPU by default. The repository's old CUDA-specific install script is unnecessary for the trainer. Python/package compatibility depends on available wheels; this fix was exercised using the project's existing Python 3.14 environment.

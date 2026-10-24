@@ -66,6 +66,7 @@ class TimeManager:
     
     def start_simulation(self):
         self.sim_st_time = self.day_st_time = time.time()
+        self.curr_sess = self._get_current_session()
 
     def advance_movement(self) -> bool:
         self.curr_movement += 1
@@ -173,7 +174,7 @@ class TimeManager:
             self.restrictions[agent_id].is_blocked = True
             self.restrictions[agent_id].rem_block = duration
         else:
-            self.agent_restrictions[agent_id] = AgentTimeRestriction(agent_id=agent_id,allow_st=0,allow_ed=self.mov_per_day,is_blocked=True,rem_block=duration)
+            self.restrictions[agent_id] = AgentTimeRestriction(agent_id=agent_id,allow_st=0,allow_ed=self.mov_per_day,is_blocked=True,rem_block=duration)
     
     def update_agent_blocks(self):
         for agent_id, restriction in self.restrictions.items():

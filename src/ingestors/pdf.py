@@ -58,10 +58,14 @@ def ingest_pdf(pdf_path: str) -> pl.DataFrame:
             for table in tables.tables:
                 data = table.extract()
                 if data and len(data) > 1:
+                    headers = [str(h).strip().lower() for h in data[0]]
+                    column = next((i for i, h in enumerate(headers) if h in ('price', 'close', 'adj close', 'adjusted close')), None)
+                    if column is None:
+                        continue
                     for row in data[1:]:
-                        for cell in row:
+                        for cell in [row[column]]:
                             # Remove currency symbols, commas, etc.
-                            cleaned = re.sub(r'[^\d.]', '', str(cell))
+                            cleaned = re.sub(r'[^\d.\-]', '', str(cell))
                             if cleaned and cleaned.count('.') <= 1:
                                 try:
                                     price = float(cleaned)

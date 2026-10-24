@@ -36,8 +36,11 @@ class PerformanceMetrics:
 
 
 class MetricsCalculator:
-    def __init__(self, risk_free_rate: float = 0.02, logger: Optional[JSONLogger] = None):
+    def __init__(self, risk_free_rate: float = 0.02, logger: Optional[JSONLogger] = None, periods_per_year: int = TRADING_DAYS):
         self.rfr = risk_free_rate
+        if periods_per_year < 1:
+            raise ValueError("periods_per_year must be positive")
+        self.periods_per_year = periods_per_year
         self.logger = logger or get_logger()
     
     def calculate_metrics(self, returns: List[float], portfolio_values: List[float], market_returns: Optional[List[float]] = None, trades: Optional[List[Dict]] = None, predictions: Optional[List[Dict]] = None) -> PerformanceMetrics:
@@ -80,32 +83,34 @@ class MetricsCalculator:
         return metrics
     
     def _calculate_annualized_return(self, returns: List[float]) -> float:
-        return 0.0 if not returns else np.mean(returns) * TRADING_DAYS
+        return 0.0 if not returns else float(np.expm1(np.mean(np.log1p(returns)) * self.periods_per_year))
     
     def _calculate_sharpe_ratio(self, returns: List[float]) -> float:
         if not returns or np.std(returns) == 0:
             return 0.0
-        excess_returns = np.array(returns) - (self.rfr / TRADING_DAYS)
-        return np.mean(excess_returns) / np.std(excess_returns)
+        excess_returns = np.array(returns) - (self.rfr / self.periods_per_year)
+        return float(np.sqrt(self.periods_per_year) * np.mean(excess_returns) / np.std(excess_returns))
     
     def _calculate_sortino_ratio(self, returns: List[float]) -> float:
         if not returns:
             return 0.0
-        excess_returns = np.array(returns) - (self.rfr / TRADING_DAYS)
+        excess_returns = np.array(returns) - (self.rfr / self.periods_per_year)
         downside_returns = excess_returns[excess_returns < 0]
         if len(downside_returns) == 0:
             return 0.0
         std_downside = np.std(downside_returns)
         if std_downside == 0:
             return 0.0
-        return float(np.mean(excess_returns) / std_downside)
+        return float(np.sqrt(self.periods_per_year) * np.mean(excess_returns) / std_downside)
     
     def _calculate_calmar_ratio(self, portfolio_values: List[float]) -> float:
         if not portfolio_values:
             return 0.0
         total_return = (portfolio_values[-1] / portfolio_values[0]) - 1
         max_dd, _ = self._calculate_max_drawdown(portfolio_values)
-        return float('inf') if max_dd == 0 else (total_return / abs(max_dd))
+        returns = np.diff(portfolio_values) / np.asarray(portfolio_values[:-1])
+        annualized = self._calculate_annualized_return(returns.tolist())
+        return 0.0 if max_dd == 0 else (annualized / abs(max_dd))
     
     def _calculate_max_drawdown(self, portfolio_values: List[float]) -> Tuple[float, int]:
         if not portfolio_values:
@@ -145,7 +150,7 @@ class MetricsCalculator:
     def _calculate_beta_alpha(self,returns: List[float],market_returns: List[float]) -> Tuple[float, float]:
         if len(returns) != len(market_returns) or len(returns) < 2:
             return 0.0, 0.0
-        covariance = np.cov(returns, market_returns)[0, 1]
+        covariance = np.cov(returns, market_returns, ddof=0)[0, 1]
         market_variance = np.var(market_returns)
         if market_variance == 0:
             return 0.0, 0.0

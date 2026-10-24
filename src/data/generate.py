@@ -1,7 +1,7 @@
 from __future__ import annotations
 import numpy as np
 import polars as pl
-import yfinance as yf
+
 
 regimes = {
     "Bull": {"drift": 0.0004, "vol": 0.006},
@@ -83,6 +83,7 @@ def generate_stock(n: int, start_price: float = 100.0, seed: int | None = None, 
     return pl.DataFrame({"t": np.arange(n, dtype=np.int64),"price": prices,"return": returns,"volume": volumes.astype(np.int64),"regime": regime_col})
 
 def fetch_aapl_data(start_date: str = "2016-01-01", end_date: str = "2022-12-31") -> pl.DataFrame:
+    import yfinance as yf
     try:
         ticker = yf.Ticker("AAPL")
         hist = ticker.history(start=start_date, end=end_date)
@@ -91,4 +92,4 @@ def fetch_aapl_data(start_date: str = "2016-01-01", end_date: str = "2022-12-31"
         df = pl.DataFrame({"price": hist['Close'].values, "date": hist.index.values})
         return df
     except Exception as e:
-        return generate_stock(1500)
+        raise RuntimeError("AAPL download failed; choose synthetic data explicitly") from e

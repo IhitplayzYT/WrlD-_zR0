@@ -827,19 +827,37 @@ class AgentPredictionGraph(QWidget):
 
 
 class AgentPredictionsPanel(QWidget):
-    """Horizontal scrollable panel for agent predictions"""
+    """Horizontal scrollable panel for agent predictions with history preservation"""
     
     def __init__(self):
         super().__init__()
         self.agent_predictions: Dict[str, Dict[str, Any]] = {}
+        self.prediction_history: List[Dict[str, Any]] = []  # Store past bbox results
         
         self.layout = QVBoxLayout()
         self.setLayout(self.layout)
         
+        # Header with current/latest label
+        header_layout = QHBoxLayout()
         self.label = QLabel("Agent Price Predictions (Sorted by Forecast Accuracy)")
         self.label.setFont(QFont("Arial", 11, QFont.Weight.Bold))
         self.label.setStyleSheet("color: #7AA2F7;")
-        self.layout.addWidget(self.label)
+        header_layout.addWidget(self.label)
+        
+        self.history_count_label = QLabel("History: 0 bbox rounds")
+        self.history_count_label.setStyleSheet("color: #A9B1D6; font-size: 10px;")
+        header_layout.addStretch()
+        header_layout.addWidget(self.history_count_label)
+        self.layout.addLayout(header_layout)
+        
+        # Tab widget for current vs history
+        self.tab_widget = QTabWidget()
+        self.layout.addWidget(self.tab_widget)
+        
+        # Current predictions tab
+        self.current_tab = QWidget()
+        current_layout = QVBoxLayout(self.current_tab)
+        current_layout.setContentsMargins(0, 0, 0, 0)
         
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
@@ -852,9 +870,40 @@ class AgentPredictionsPanel(QWidget):
         self.graphs_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         
         self.scroll_area.setWidget(self.graphs_container)
-        self.layout.addWidget(self.scroll_area)
+        current_layout.addWidget(self.scroll_area)
+        self.tab_widget.addTab(self.current_tab, "Current")
+        
+        # History tab
+        self.history_tab = QWidget()
+        history_layout = QVBoxLayout(self.history_tab)
+        history_layout.setContentsMargins(0, 0, 0, 0)
+        
+        self.history_scroll = QScrollArea()
+        self.history_scroll.setWidgetResizable(True)
+        self.history_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        
+        self.history_container = QWidget()
+        self.history_layout = QVBoxLayout(self.history_container)
+        self.history_container.setLayout(self.history_layout)
+        
+        self.history_scroll.setWidget(self.history_container)
+        history_layout.addWidget(self.history_scroll)
+        self.tab_widget.addTab(self.history_tab, "History")
     
     def update_predictions(self, actual_prices: List[float], agent_predictions: Dict[str, List[float]]):
+        # Save current predictions to history before updating
+        if self.agent_predictions:
+            self.prediction_history.append({
+                'timestamp': datetime.now(),
+                'actual_prices': actual_prices.copy(),
+                'predictions': {aid: data.copy() for aid, data in self.agent_predictions.items()}
+            })
+            # Keep only last 20 bbox rounds in history
+            if len(self.prediction_history) > 20:
+                self.prediction_history = self.prediction_history[-20:]
+            self._update_history_display()
+        
+        # Update current predictions
         self.agent_predictions = {}
         for agent_id, predictions in agent_predictions.items():
             acc = self._calculate_accuracy(actual_prices, predictions)
@@ -873,6 +922,50 @@ class AgentPredictionsPanel(QWidget):
         for agent_id, data in sorted_agents:
             graph = AgentPredictionGraph(agent_id, actual_prices, data['predictions'])
             self.graphs_layout.addWidget(graph)
+        
+        self.history_count_label.setText(f"History: {len(self.prediction_history)} bbox rounds")
+    
+    def _update_history_display(self):
+        """Update the history tab with scrollable past predictions"""
+        # Clear existing history widgets
+        for i in reversed(range(self.history_layout.count())):
+            item = self.history_layout.itemAt(i)
+            if item and item.widget():
+                item.widget().setParent(None)
+        
+        # Add history entries in reverse chronological order
+        for entry in reversed(self.prediction_history):
+            timestamp = entry['timestamp'].strftime("%H:%M:%S")
+            actual = entry['actual_prices']
+            preds = entry['predictions']
+            
+            # Create a group box for this history entry
+            group = QGroupBox(f"BBox Round at {timestamp}")
+            group.setStyleSheet("QGroupBox { color: #7AA2F7; font-weight: bold; }")
+            group_layout = QVBoxLayout()
+            group.setLayout(group_layout)
+            
+            # Sort by accuracy for this round
+            sorted_preds = sorted(preds.items(), key=lambda x: x[1]['accuracy'], reverse=True)
+            
+            # Create horizontal scroll for this round's graphs
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            
+            graphs_container = QWidget()
+            graphs_layout = QHBoxLayout(graphs_container)
+            graphs_container.setLayout(graphs_layout)
+            graphs_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            
+            for agent_id, data in sorted_preds:
+                graph = AgentPredictionGraph(agent_id, actual, data['predictions'])
+                graphs_layout.addWidget(graph)
+            
+            scroll.setWidget(graphs_container)
+            group_layout.addWidget(scroll)
+            self.history_layout.addWidget(group)
     
     def _calculate_accuracy(self, actual: List[float], predicted: List[float]) -> float:
         if len(actual) != len(predicted) or len(actual) == 0:
@@ -1030,6 +1123,8 @@ class TradingGUI(QMainWindow):
     
     def __init__(self, simulation_state: Dict[str, Any]):
         super().__init__()
+        self.environment = simulation_state.get('environment')
+        self.observations = simulation_state.get('observations')
         self.simulation_state = simulation_state
         self.stock_data = simulation_state.get('current_stock_data', {})
         self.price_history = simulation_state.get('price_history', {})
@@ -1052,6 +1147,17 @@ class TradingGUI(QMainWindow):
         self.setStyleSheet(QSS_THEME)
         
         self.setup_ui()
+        if self.environment is not None:
+            self.setWindowTitle("Synthetic RL Market — Live environment")
+            # Experimental population, endowments and event budget stay fixed.
+            self.runtime_tuning.setEnabled(False)
+            self.villain_shop.setEnabled(False)
+            for kind in (QPushButton, QSpinBox, QDoubleSpinBox, QComboBox):
+                for widget in self.agent_inspector.findChildren(kind):
+                    widget.setEnabled(False)
+            self.news_log.add_entry("News", "Live market ledger. Pause and resume with the top button.")
+        else:
+            self.setWindowTitle("Market UI demo — illustrative data, not research results")
         self.setup_timer()
     
     def setup_ui(self):
@@ -1163,10 +1269,55 @@ class TradingGUI(QMainWindow):
         self.price_graph.end_black_box_period()
         self.news_log.add_entry("News", "Black box anomaly period ended.")
 
+    def _update_live_environment(self):
+        env = self.environment
+        if env._ended:
+            self.paused = True
+            return
+        
+        # Track black box state for visualization
+        was_black_box = env.is_black_box
+        
+        actions = {aid: agent.decide_action(self.observations[aid], env.action_space)
+                   for aid, agent in env.agent_objects.items()}
+        self.observations, rewards, terminated, truncated, infos = env.step(actions)
+        self.update_counter = env.current_step
+        self.stock_data = env.current_prices.copy()
+        self.price_history = {a: p[-150:] for a,p in env.price_history.items()}
+        self.agents = {aid: agent.get_info() for aid,agent in env.agent_objects.items()}
+        self.stock_ticker.update_prices(self.stock_data)
+        self.price_graph.update_price_history(self.price_history)
+        self.agent_inspector.update_agents(self.agents, self.stock_data)
+        self.villain_shop.set_villain_points(sum(s.villain_points for s in env.agent_states.values() if s.is_bad))
+        
+        # Update black box visualization
+        if env.is_black_box and not was_black_box:
+            # Black box just started
+            curr_idx = len(self.price_history.get(self.selected_stock, []))
+            self.price_graph.add_black_box_period(curr_idx, curr_idx + env.black_box_duration)
+            self.news_log.add_entry("Villain Move", "BLACK BOX ANOMALY ACTIVATED!")
+        elif not env.is_black_box and was_black_box:
+            # Black box just ended
+            self.price_graph.end_black_box_period()
+            self.news_log.add_entry("News", "Black box anomaly period ended.")
+        
+        results = env.black_box_system.pred_results
+        if results and results[-1].actual:
+            latest = results[-env.n_agents:]
+            self.agent_predictions_panel.update_predictions(latest[-1].actual,
+                {r.prediction.agent_id: r.prediction.pred_val for r in latest})
+        if terminated or truncated:
+            self.paused = True
+            self.timer.stop()
+            self.news_log.add_entry("News", f"Episode finished at step {env.current_step}: {next(iter(infos.values()))['termination_reason']}")
+
     def update_simulation_data(self):
         if self.paused:
             return
             
+        if self.environment is not None:
+            self._update_live_environment()
+            return
         self.update_counter += 1
         
         # Black Box Logic

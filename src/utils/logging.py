@@ -100,7 +100,8 @@ class JSONLogger:
         self.enable_compression = enable_compression
         self.buffer: deque = deque(maxlen=buffer_size)
         self.buffer_size = buffer_size
-        self.lock = threading.Lock()
+        # log() may flush while holding this lock.
+        self.lock = threading.RLock()
     
     def log(self, level: LogLevel, category: LogCategory, message: str, data: Optional[Dict[str, Any]] = None, source: str = "", agent_id: Optional[str] = None, episode: Optional[int] = None, step: Optional[int] = None):
         with self.lock:

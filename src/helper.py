@@ -19,11 +19,16 @@ class p_Event:
 
 class CLI:
     def __init__(self):
+        self.n_assets = 1
+        self.use_curriculum = True
+        self.seed = 42
+        self.resume = None
+        self.log_dir = "./logs"
         self.dbg = False
         self.gui = False
         self.config_file = None
         self.n_agnts = 5
-        self.mx_bad = max(1, int(self.n_agnts * 0.2))
+        self.mx_bad = max(0, int(self.n_agnts * 0.2))
         self.mx_episodes = 100
         self.episode_day_len = 200
         self.each_day_movements = 10
@@ -70,6 +75,9 @@ class CLI:
             print(f"Warning: Failed to load configuration file {config_path}: {e}")
 
     def _apply_config_dict(self, data: Dict):
+        for key in ("seed", "resume", "log_dir", "n_assets", "use_curriculum"):
+            if key in data:
+                setattr(self, key, data[key])
         if "n_agents" in data or "n_agnts" in data:
             self.n_agnts = int(data.get("n_agents", data.get("n_agnts", self.n_agnts)))
         if "max_bad" in data or "max_bad_agents" in data or "mx_bad" in data:
@@ -115,7 +123,7 @@ class CLI:
             self.use_robust_ensemble = bool(data["use_robust_ensemble"])
         if "adversarial_train" in data:
             self.adversarial_train = bool(data["adversarial_train"])
-        max_allowed_bad = max(1, int(self.n_agnts * 0.2))
+        max_allowed_bad = max(0, int(self.n_agnts * 0.2))
         self.mx_bad = min(self.mx_bad, max_allowed_bad)
 
     def Parse(self):
@@ -139,6 +147,16 @@ class CLI:
                         self.rng_bbox = tuple(parts)
                 except Exception:
                     pass
+            elif i == "--no_curriculum":
+                self.use_curriculum = False
+            elif i.startswith("--n_assets="):
+                self.n_assets = int(i.split("=", 1)[1])
+            elif i.startswith("--seed="):
+                self.seed = int(i.split("=", 1)[1])
+            elif i.startswith("--resume="):
+                self.resume = i.split("=", 1)[1]
+            elif i.startswith("--log_dir="):
+                self.log_dir = i.split("=", 1)[1]
             elif i.startswith("-n=") or i.startswith("--n_agents="):
                 self.n_agnts = int(i[i.find("=")+1:])
             elif i.startswith("-m_bad=") or i.startswith("--max_bad="):
@@ -196,7 +214,7 @@ class CLI:
                 self.adversarial_train = False
             else:
                 pass
-        max_allowed_bad = max(1, int(self.n_agnts * 0.2))
+        max_allowed_bad = max(0, int(self.n_agnts * 0.2))
         self.mx_bad = min(self.mx_bad, max_allowed_bad)
 
 def Help():

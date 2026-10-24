@@ -95,11 +95,13 @@ class AgentState:
     memory: List[Dict] = field(default_factory=list)  # Agent's memory of past events
     age: int = 0
     peak: float = 0.0  # Track peak portfolio value for drawdown calculation
+    max_drawdown: float = 0.0
     
     def update_portfolio_value(self, current_prices: Dict[str, float], initial_capital: float):
         holdings_value = sum(quantity * current_prices.get(asset, 0.0) for asset, quantity in self.holdings.items())
         self.total_value = self.cash + holdings_value
         self.peak = max(self.peak, self.total_value)
+        self.max_drawdown = max(self.max_drawdown, 1-self.total_value/max(self.peak, 1e-8))
         self.profit_history.append(self.total_value - initial_capital)
     
     def add_memory(self, memory: Dict):
@@ -119,15 +121,27 @@ class BaseAgent:
         self.agent_type = agent_type
         self.initial_cash = initial_cash
         self.traits = AgentTraits() if  traits is None else traits
-        self.state = AgentState(agent_id=agent_id,agent_type=agent_type,cash=initial_cash,holdings={},total_value=initial_cash,traits=self.traits)
+        self.state = AgentState(agent_id=agent_id,agent_type=agent_type,cash=initial_cash,holdings={},total_value=initial_cash,traits=self.traits,peak=initial_cash)
             
     # Arbitrary Random Guess
     def decide_action(self,observation: Dict[str, Any],action_space: Any) -> np.ndarray:
         """ [action_type, asset_idx, quantity, price]
         action_type: 0=hold, 1=market_buy, 2=market_sell, 3=limit_buy, 4=limit_sell """
-        available_assets = observation.get('available_assets', ['AAPL'])
-        return np.array([random.randint(0, 4),  random.randint(0, len(available_assets) - 1) if available_assets else 0, random.randint(1, 100), random.uniform(90.0, 110.0) ], dtype=np.float32)
-    
+        assets = np.flatnonzero(np.asarray(observation['available_assets']) > 0)
+        idx = int(random.choice(assets))
+        price = float(observation['current_price'][idx])
+        cash = float(observation.get('available_cash', observation['agent_cash']))
+        holdings = observation.get('available_holdings', observation['agent_holdings'])
+        kinds = [0]
+        if cash >= price * 1.002:
+            kinds.extend([1, 3])
+        if holdings[idx] > 0:
+            kinds.extend([2, 4])
+        kind = random.choice(kinds) if observation.get('can_trade', True) else 0
+        qty = min(10, int(cash/(price*1.002))) if kind in (1, 3) else min(10, int(holdings[idx]))
+        quote = price * (.999 if kind == 3 else 1.001 if kind == 4 else 1.)
+        return np.array([kind, idx, qty if kind else 0, quote], dtype=np.float32)
+
     def apply_trait_modifications(self, base_action: np.ndarray) -> np.ndarray:
         modifiers = self.traits.get_behavior_modifiers()
         action = base_action.copy()
@@ -169,8 +183,7 @@ class BaseAgent:
         self.state.episode_performance['total_reward'] = self.state.episode_performance.get('total_reward', 0.0) + reward
         self.state.episode_performance['num_actions'] = self.state.episode_performance.get('num_actions', 0) + 1
         
-        if not self.state.is_bad and self.state.total_value < self.initial_cash * 0.5:
-            self.transform_to_bad()
+        # Agent roles are fixed experimental treatments, not a consequence of losses.
     
     def transform_to_bad(self):
         self.state.is_bad = True
@@ -182,7 +195,7 @@ class BaseAgent:
     
     def reset(self, initial_cash: Optional[float] = None):
         cash = initial_cash if initial_cash is not None else self.initial_cash
-        self.state = AgentState(agent_id=self.agent_id,agent_type=self.agent_type,cash=cash,holdings={},total_value=cash,traits=self.traits,age=self.state.age + 1)
+        self.state = AgentState(agent_id=self.agent_id,agent_type=self.agent_type,cash=cash,holdings={},total_value=cash,traits=self.traits,age=self.state.age + 1,peak=cash)
     
     def get_info(self) -> Dict[str, Any]:
-        return {'agent_id': self.agent_id,'agent_type': self.agent_type.value,'cash': self.state.cash,'holdings': self.state.holdings,'total_value': self.state.total_value,'is_bad': self.state.is_bad,'villain_points': self.state.villain_points,'traits': self.traits.__dict__,'age': self.state.age,'recent_performance': self.state.get_recent_performance(10)}
+        return {'initial_cash': self.initial_cash, 'agent_id': self.agent_id,'agent_type': self.agent_type.value,'cash': self.state.cash,'holdings': self.state.holdings,'total_value': self.state.total_value,'is_bad': self.state.is_bad,'villain_points': self.state.villain_points,'traits': self.traits.__dict__,'age': self.state.age,'recent_performance': self.state.get_recent_performance(10)}

@@ -3,6 +3,7 @@ from enum import Enum
 from typing import List, Dict, Optional, Tuple
 from sortedcontainers import SortedDict, SortedList
 import time
+import math
 
 class OrderSide(Enum):
     BUY = "buy"
@@ -33,6 +34,8 @@ class Trade:
     price: float
     qty: int
     timestamp: float = field(default_factory=time.time)
+    buyer: str = ""
+    seller: str = ""
 
 class OrderBook:
     def __init__(self):
@@ -47,8 +50,10 @@ class OrderBook:
         return f"ORD_{self._order_counter}"
     
     def add_order(self, agent_id: str, side: OrderSide, price: float, quantity: int) -> str:
+        if not math.isfinite(price) or price <= 0 or quantity <= 0 or int(quantity) != quantity:
+            raise ValueError("Orders require a positive finite price and integer quantity")
         order_id = self._generate_order_id()
-        order = Order(order_id, agent_id, side, price, quantity)
+        order = Order(order_id, agent_id, side, price, quantity, timestamp=float(self._order_counter))
         self.order_map[order_id] = order
         if side == OrderSide.BUY:
             if price not in self.bids:
@@ -86,9 +91,12 @@ class OrderBook:
             if best_bid_price >= best_ask_price:
                 best_bid = self.bids[best_bid_price][0]
                 best_ask = self.asks[best_ask_price][0]
-                trade_price = (best_bid_price + best_ask_price) * 0.5
+                if best_bid.agent_id == best_ask.agent_id:
+                    self.cancel_order(best_bid.id if best_bid.timestamp > best_ask.timestamp else best_ask.id)
+                    continue
+                trade_price = best_bid_price if best_bid.timestamp < best_ask.timestamp else best_ask_price
                 trade_quantity = min(best_bid.qty, best_ask.qty)
-                trade = Trade(best_bid.id,best_ask.id,trade_price,trade_quantity)
+                trade = Trade(best_bid.id,best_ask.id,trade_price,trade_quantity, buyer=best_bid.agent_id, seller=best_ask.agent_id)
                 new_trades.append(trade)
                 self.trades.append(trade)                
                 best_bid.qty -= trade_quantity

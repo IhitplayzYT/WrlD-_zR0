@@ -73,6 +73,21 @@ OPTIONS
     -trainer, --enable_trainer
         Enable curriculum learning trainer and training pipeline.
 
+    --seed=INTEGER
+        Seed synthetic data, action sampling and model initialization. Default 42.
+
+    --resume=PATH
+        Resume a trusted new-format checkpoint (latest.json) with matching settings.
+
+    --log_dir=PATH, --checkpoint_dir=PATH
+        Store logs and policy checkpoints in separate run directories.
+
+    --n_assets=INTEGER
+        Number of synthetic assets (1 through 10). Default 1.
+
+    --no_curriculum
+        Train at a fixed distribution for comparable research runs.
+
     -h, --help
         Display this manual page and exit.
 

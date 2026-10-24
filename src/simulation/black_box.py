@@ -22,7 +22,7 @@ class Prediction:
     timestamp: datetime = field(default_factory=datetime.now)
     
     def validate(self) -> bool:
-        if not self.pred_val or len(self.conf_interv) != 2 or self.conf_interv[0] >= self.conf_interv[1] or not 0.0 <= self.conf_lvl <= 1.0:
+        if not self.pred_val or not np.isfinite(self.pred_val).all() or not np.isfinite(self.conf_interv).all() or len(self.conf_interv) != 2 or self.conf_interv[0] >= self.conf_interv[1] or not 0.0 <= self.conf_lvl <= 1.0:
             return False
         return True
 
@@ -188,7 +188,7 @@ class BlackBoxPredictionSystem:
         entry.accuracy = entry.correct_preds / entry.total_preds
         entry.avg_conf = (entry.avg_conf * (entry.total_preds - 1) + result.prediction.conf_lvl) / entry.total_preds
         entry.conf_accuracy = (entry.conf_accuracy * (entry.total_preds - 1) + result.conf_accuracy) / entry.total_preds
-        entry.total_vp += result.vp
+        entry.total_vp += result.villion_pt_earned
         if result.is_king:
             entry.n_king += 1
         entry.reputation = self._calculate_reputation_score(entry)
@@ -236,19 +236,10 @@ class BlackBoxPredictionSystem:
         losses = np.array([self.ensemble_loss.get(p.agent_id, 1.0) for p in predictions])
         precision = 1. / (0.15 + losses[:, None])
         
-        # Apply adversarial penalty if agent types are known
-        if self.agent_types:
-            adversarial_penalty = np.ones_like(precision)
-            for i, pred in enumerate(predictions):
-                if self.agent_types.get(pred.agent_id) == 'adversarial':
-                    # Adversarial agents get additional penalty based on deviation
-                    adversarial_deviation = np.abs(pred_array[i] - median) / (mad + 0.01)
-                    adversarial_penalty[i] = 1.0 / (1.0 + 2.0 * adversarial_deviation.mean())
-            precision = precision * adversarial_penalty
-        
+        # Identity labels are unavailable to a deployable robust aggregator.
         weight = 0.90 * precision / precision.sum(axis=0) + 0.10 / len(predictions)
         
-        ensemble = np.sum(weight[:, None] * clipped, axis=0)
+        ensemble = np.sum(weight * clipped, axis=0)
         return ensemble.tolist()
     
     def _simple_average_ensemble(self, predictions: List[Prediction]) -> List[float]:
@@ -330,6 +321,11 @@ class BlackBoxPredictionSystem:
         self.curr_pred.clear()
         self.pred_results.clear()
         self.curr_king = None
+        self.leaderboard.clear()
+        self.ensemble_loss.clear()
+        self.ensemble_residuals.clear()
+        self.prediction_order.clear()
+        self.king_hist.clear()
     
     def get_state(self) -> Dict[str, Any]:
         return {'is_active': self.is_active,'remaining_duration': self.rem_dur,'step_counter': self.n_steps,'num_predictions': len(self.curr_pred),'current_king': self.curr_king,'leaderboard_size': len(self.leaderboard),'market_consensus': self.get_market_consensus()}

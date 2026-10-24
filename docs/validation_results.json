@@ -1,0 +1,371 @@
+[
+  {
+    "seed": 7,
+    "adversaries": 0,
+    "episodes": 20,
+    "mean_reward": -50.814344388259954,
+    "positive_episodes": 0,
+    "negative_episodes": 20,
+    "steps": 4000,
+    "trade_count": 11507,
+    "event_count": 0,
+    "termination_reasons": {
+      "time_limit": 20
+    },
+    "mean_reward_by_type": {
+      "rlaif": -10.162868877651992
+    },
+    "components": {
+      "pnl": -625.1014487116697,
+      "drawdown": -317.6561504357209,
+      "preference": -73.52928861780863,
+      "forecast": 0.0,
+      "damage": 0.0
+    },
+    "policy_updates": {
+      "agent_0": 140,
+      "agent_1": 140,
+      "agent_2": 140,
+      "agent_3": 140,
+      "agent_4": 140
+    },
+    "before_evaluation": {
+      "mean_reward": -41.991304810392855,
+      "std_reward": 24.997156291727933,
+      "mean_length": 175.0,
+      "reward_by_type": {
+        "rlaif": -8.398260962078572
+      },
+      "portfolio_return_by_type": {
+        "rlaif": -0.06143934519232633
+      },
+      "mean_portfolio_return": -0.06143934519232633,
+      "buy_and_hold_return": -0.13971629004455485,
+      "cash_return": 0.0
+    },
+    "after_evaluation": {
+      "mean_reward": -12.429033772987644,
+      "std_reward": 15.108154765034387,
+      "mean_length": 175.0,
+      "reward_by_type": {
+        "rlaif": -2.4858067545975286
+      },
+      "portfolio_return_by_type": {
+        "rlaif": -0.011113491980183328
+      },
+      "mean_portfolio_return": -0.011113491980183328,
+      "buy_and_hold_return": -0.1397480207663224,
+      "cash_return": 0.0
+    }
+  },
+  {
+    "seed": 7,
+    "adversaries": 1,
+    "episodes": 20,
+    "mean_reward": -39.74562894261918,
+    "positive_episodes": 0,
+    "negative_episodes": 20,
+    "steps": 4000,
+    "trade_count": 11461,
+    "event_count": 40,
+    "termination_reasons": {
+      "time_limit": 20
+    },
+    "mean_reward_by_type": {
+      "adversarial": 3.2212318350837306,
+      "rlaif": -10.741715194425726
+    },
+    "components": {
+      "pnl": -555.2331290369943,
+      "drawdown": -407.70867727498785,
+      "preference": -57.81124740683343,
+      "forecast": 0.0,
+      "damage": 225.8404748664322
+    },
+    "policy_updates": {
+      "agent_0": 140,
+      "agent_1": 140,
+      "agent_2": 140,
+      "agent_3": 140,
+      "agent_4": 140
+    },
+    "before_evaluation": {
+      "mean_reward": -11.519842547903073,
+      "std_reward": 4.018312174117643,
+      "mean_length": 200.0,
+      "reward_by_type": {
+        "adversarial": -2.250533875857374,
+        "rlaif": -2.3173271680114245
+      },
+      "portfolio_return_by_type": {
+        "adversarial": -0.011486822950051323,
+        "rlaif": -0.009117920866490594
+      },
+      "mean_portfolio_return": -0.00959170128320274,
+      "buy_and_hold_return": 0.026502260884921986,
+      "cash_return": 0.0
+    },
+    "after_evaluation": {
+      "mean_reward": 13.004982830248297,
+      "std_reward": 2.283207183433766,
+      "mean_length": 200.0,
+      "reward_by_type": {
+        "adversarial": 12.66272896581649,
+        "rlaif": 0.0855634661079524
+      },
+      "portfolio_return_by_type": {
+        "adversarial": 0.0,
+        "rlaif": 0.0009339536678532045
+      },
+      "mean_portfolio_return": 0.0007471629342825636,
+      "buy_and_hold_return": 0.04483569266544448,
+      "cash_return": 0.0
+    }
+  },
+  {
+    "seed": 17,
+    "adversaries": 0,
+    "episodes": 20,
+    "mean_reward": -41.84588307282775,
+    "positive_episodes": 0,
+    "negative_episodes": 20,
+    "steps": 4000,
+    "trade_count": 11434,
+    "event_count": 0,
+    "termination_reasons": {
+      "time_limit": 20
+    },
+    "mean_reward_by_type": {
+      "rlaif": -8.369176614565552
+    },
+    "components": {
+      "pnl": -469.52135730196864,
+      "drawdown": -300.87403252432176,
+      "preference": -66.52227163026474,
+      "forecast": 0.0,
+      "damage": 0.0
+    },
+    "policy_updates": {
+      "agent_0": 140,
+      "agent_1": 140,
+      "agent_2": 140,
+      "agent_3": 140,
+      "agent_4": 140
+    },
+    "before_evaluation": {
+      "mean_reward": -28.41856397038875,
+      "std_reward": 4.894519334002534,
+      "mean_length": 200.0,
+      "reward_by_type": {
+        "rlaif": -5.68371279407775
+      },
+      "portfolio_return_by_type": {
+        "rlaif": -0.013366604341287698
+      },
+      "mean_portfolio_return": -0.013366604341287698,
+      "buy_and_hold_return": 0.13758860932886105,
+      "cash_return": 0.0
+    },
+    "after_evaluation": {
+      "mean_reward": -2.7442752858479733,
+      "std_reward": 0.9658531362004117,
+      "mean_length": 200.0,
+      "reward_by_type": {
+        "rlaif": -0.5488550571695946
+      },
+      "portfolio_return_by_type": {
+        "rlaif": 0.009027462773018765
+      },
+      "mean_portfolio_return": 0.009027462773018765,
+      "buy_and_hold_return": 0.13757716668988781,
+      "cash_return": 0.0
+    }
+  },
+  {
+    "seed": 17,
+    "adversaries": 1,
+    "episodes": 20,
+    "mean_reward": -37.924089653447616,
+    "positive_episodes": 0,
+    "negative_episodes": 20,
+    "steps": 4000,
+    "trade_count": 11365,
+    "event_count": 40,
+    "termination_reasons": {
+      "time_limit": 20
+    },
+    "mean_reward_by_type": {
+      "adversarial": 0.9438569340489685,
+      "rlaif": -9.716986646874147
+    },
+    "components": {
+      "pnl": -469.56971128320316,
+      "drawdown": -385.4679807103457,
+      "preference": -58.822073451114335,
+      "forecast": 0.0,
+      "damage": 155.37797237571093
+    },
+    "policy_updates": {
+      "agent_0": 140,
+      "agent_1": 140,
+      "agent_2": 140,
+      "agent_3": 140,
+      "agent_4": 140
+    },
+    "before_evaluation": {
+      "mean_reward": -22.081427300382913,
+      "std_reward": 7.4938807982274405,
+      "mean_length": 200.0,
+      "reward_by_type": {
+        "adversarial": 0.6532705606449524,
+        "rlaif": -5.683674465256966
+      },
+      "portfolio_return_by_type": {
+        "adversarial": -0.07458991984015884,
+        "rlaif": -0.017684284618512163
+      },
+      "mean_portfolio_return": -0.029065411662841496,
+      "buy_and_hold_return": 0.12474128558427207,
+      "cash_return": 0.0
+    },
+    "after_evaluation": {
+      "mean_reward": -0.9214314580037019,
+      "std_reward": 1.3850253815502633,
+      "mean_length": 200.0,
+      "reward_by_type": {
+        "adversarial": -0.9214314580037019,
+        "rlaif": 0.0
+      },
+      "portfolio_return_by_type": {
+        "adversarial": -0.16039607596180686,
+        "rlaif": 0.0
+      },
+      "mean_portfolio_return": -0.03207921519236137,
+      "buy_and_hold_return": 0.1068338195152178,
+      "cash_return": 0.0
+    }
+  },
+  {
+    "seed": 42,
+    "adversaries": 0,
+    "episodes": 20,
+    "mean_reward": -39.08088409556579,
+    "positive_episodes": 0,
+    "negative_episodes": 20,
+    "steps": 4000,
+    "trade_count": 11442,
+    "event_count": 0,
+    "termination_reasons": {
+      "time_limit": 20
+    },
+    "mean_reward_by_type": {
+      "rlaif": -7.816176819113158
+    },
+    "components": {
+      "pnl": -395.33256711910144,
+      "drawdown": -319.28834703776914,
+      "preference": -66.99676775444534,
+      "forecast": 0.0,
+      "damage": 0.0
+    },
+    "policy_updates": {
+      "agent_0": 140,
+      "agent_1": 140,
+      "agent_2": 140,
+      "agent_3": 140,
+      "agent_4": 140
+    },
+    "before_evaluation": {
+      "mean_reward": -50.811332091962235,
+      "std_reward": 9.825938990390789,
+      "mean_length": 200.0,
+      "reward_by_type": {
+        "rlaif": -10.162266418392447
+      },
+      "portfolio_return_by_type": {
+        "rlaif": -0.06974255931143984
+      },
+      "mean_portfolio_return": -0.06974255931143984,
+      "buy_and_hold_return": -0.06032939506622925,
+      "cash_return": 0.0
+    },
+    "after_evaluation": {
+      "mean_reward": -11.804736492569548,
+      "std_reward": 7.6306140539792136,
+      "mean_length": 200.0,
+      "reward_by_type": {
+        "rlaif": -2.36094729851391
+      },
+      "portfolio_return_by_type": {
+        "rlaif": 0.0053178133055671465
+      },
+      "mean_portfolio_return": 0.0053178133055671465,
+      "buy_and_hold_return": -0.06337492321292122,
+      "cash_return": 0.0
+    }
+  },
+  {
+    "seed": 42,
+    "adversaries": 1,
+    "episodes": 20,
+    "mean_reward": -24.632592211463468,
+    "positive_episodes": 0,
+    "negative_episodes": 20,
+    "steps": 4000,
+    "trade_count": 11564,
+    "event_count": 40,
+    "termination_reasons": {
+      "time_limit": 20
+    },
+    "mean_reward_by_type": {
+      "adversarial": 1.3999410094556144,
+      "rlaif": -6.508133305229771
+    },
+    "components": {
+      "pnl": -243.3365280009666,
+      "drawdown": -353.79452818814326,
+      "preference": -52.9211638518044,
+      "forecast": 0.0,
+      "damage": 157.40037581164495
+    },
+    "policy_updates": {
+      "agent_0": 140,
+      "agent_1": 140,
+      "agent_2": 140,
+      "agent_3": 140,
+      "agent_4": 140
+    },
+    "before_evaluation": {
+      "mean_reward": -38.533252839213226,
+      "std_reward": 10.096114125110587,
+      "mean_length": 200.0,
+      "reward_by_type": {
+        "adversarial": 5.248375028836832,
+        "rlaif": -10.945406967012515
+      },
+      "portfolio_return_by_type": {
+        "adversarial": -0.06551935461746583,
+        "rlaif": -0.07783968450393748
+      },
+      "mean_portfolio_return": -0.07537561852664316,
+      "buy_and_hold_return": -0.07309063400332534,
+      "cash_return": 0.0
+    },
+    "after_evaluation": {
+      "mean_reward": -9.003692325238218,
+      "std_reward": 12.749474076465056,
+      "mean_length": 200.0,
+      "reward_by_type": {
+        "adversarial": 12.7164701287886,
+        "rlaif": -5.430040613506705
+      },
+      "portfolio_return_by_type": {
+        "adversarial": -0.06041833427795403,
+        "rlaif": -0.0019006283290916026
+      },
+      "mean_portfolio_return": -0.013604169518864088,
+      "buy_and_hold_return": -0.04347012113104235,
+      "cash_return": 0.0
+    }
+  }
+]

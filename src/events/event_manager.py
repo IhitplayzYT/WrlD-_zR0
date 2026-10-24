@@ -94,30 +94,32 @@ class MarketEvent:
         
         return True
     
-    def activate(self):
+    def activate(self, step: int = 0):
         self.is_active = True
-        self.start_time = time.time()
+        self.start_time = step
         self.end_time = self.start_time + self.duration
     
-    def deactivate(self):
+    def deactivate(self, step: int = 0):
         self.is_active = False
-        self.last_triggered = time.time()
+        self.last_triggered = step
         self.start_time = None
         self.end_time = None
     
-    def is_expired(self) -> bool:
-        return False if not (self.is_active or self.end_time is None) else time.time() > self.end_time
+    def is_expired(self, step: int = 0) -> bool:
+        return self.is_active and self.end_time is not None and step >= self.end_time
     
     def can_trigger(self, market_state: Dict) -> bool:
         if self.is_active:
             return False
         if self.last_triggered is not None:
-            if (self.last_triggered + self.cooldown) - time.time() > 0:
+            if (self.last_triggered + self.cooldown) - market_state.get("step", 0) > 0:
                 return False
         return self.check_conditions(market_state)
 
 class EventManager:
     def __init__(self, load_default: bool = True):
+        self.current_step = 0
+        self.probability_scale = 1.0
         self.events: List[MarketEvent] = []
         self._event_counter = 0
         if load_default:
@@ -151,19 +153,21 @@ class EventManager:
     
     def update(self, market_state: Dict):
         """Update event states and trigger new events"""
+        self.current_step = int(market_state.get("step", self.current_step + 1))
+        market_state = {**market_state, "step": self.current_step}
         for event in self.events:
-            if event.is_active and event.is_expired():
-                event.deactivate()
+            if event.is_active and event.is_expired(self.current_step):
+                event.deactivate(self.current_step)
         sorted_events = sorted(self.events, key=lambda e: e.priority, reverse=True)
         for event in sorted_events:
             if event.can_trigger(market_state):
-                if random.random() < (event.probability * 0.5):
-                    event.activate()
+                if random.random() < (event.probability * self.probability_scale):
+                    event.activate(self.current_step)
     
     def trigger_event(self, event_id: int, market_state: Dict) -> bool:
         event = self.get_event(event_id)
         if event and event.can_trigger(market_state):
-            event.activate()
+            event.activate(self.current_step)
             return True
         return False
 
@@ -171,14 +175,14 @@ class EventManager:
         return [e for e in self.events if e.can_trigger(market_state)]
 
     def agent_trigger_catalog(self, market_state: Dict, max_events: int = 32) -> Tuple[List[int], np.ndarray]:
-        triggerable = self.get_triggerable_events(market_state)
-        triggerable = sorted(triggerable, key=lambda e: e.priority, reverse=True)[:max_events]
-        ids = [e.id for e in triggerable]
+        # Stable slots: removing an active event must not change every action's meaning.
+        catalog = sorted(self.events, key=lambda e: e.id)[:max_events]
+        ids = [e.id for e in catalog]
         mask = np.zeros(max_events, dtype=np.float32)
-        for i in range(len(ids)):
-            mask[i] = 1.0
+        for i, event in enumerate(catalog):
+            mask[i] = float(event.can_trigger(market_state))
         return ids, mask
-    
+
     def get_event_effects(self) -> Dict:
         active_events = self.get_active_events()
         combined_effects = {'price_drift': 0.0,'volatility_multiplier': 1.0,'liquidity_multiplier': 1.0,'spread_multiplier': 1.0,'buy_pressure': 0.0,'sell_pressure': 0.0,'volume_multiplier': 1.0,'market_confidence': 1.0,'jump_probability': 0.0,'jump_mean': 0.0,'jump_std': 0.0,'mean_reversion_strength': 0.0,'order_cancel_rate': 0.0,'order_arrival_rate': 0.0}
@@ -207,6 +211,7 @@ class EventManager:
         return news
     
     def reset(self):
+        self.current_step = 0
         for event in self.events:
             event.is_active = False
             event.start_time = event.end_time = event.last_triggered = None

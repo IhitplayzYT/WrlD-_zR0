@@ -1,3 +1,5 @@
+> Historical notes: the corrected implementation and verified commands are documented in [SUMMARY.md](SUMMARY.md) and [COMMANDS.md](COMMANDS.md). Claims below about PPO/SAC, simulated dynamics and reward wiring describe earlier code, not the current research trainer.
+
 # Integration Notes: market_ensemble_v2 Components into WrlD-_zR0
 
 ## Overview
