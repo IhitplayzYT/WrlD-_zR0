@@ -52,6 +52,14 @@ class CLI:
         self.use_deterministic_checkpoints = True
         self.use_robust_ensemble = True
         self.adversarial_train = True
+        self.event_impact = 'jump'
+        self.bbox_villain_points = True
+        self.event_choice = 'prior'
+        self.kaiser_effects = True
+        self.lp_max_inventory = 5000
+        self.eval_episodes = 3
+        self.adversary_max_position = .3
+        self.curriculum_bbox = False
 
     def load_config_file(self, config_path: str):
         if not os.path.exists(config_path):
@@ -123,6 +131,15 @@ class CLI:
             self.use_robust_ensemble = bool(data["use_robust_ensemble"])
         if "adversarial_train" in data:
             self.adversarial_train = bool(data["adversarial_train"])
+        if "event_impact" in data:
+            self.event_impact = str(data["event_impact"])
+        for key, cast in (("event_choice", str), ("kaiser_effects", bool), ("lp_max_inventory", int), ("eval_episodes", int), ("adversary_max_position", float)):
+            if key in data:
+                setattr(self, key, cast(data[key]))
+        if "bbox_villain_points" in data:
+            self.bbox_villain_points = bool(data["bbox_villain_points"])
+        if "curriculum_bbox" in data:
+            self.curriculum_bbox = bool(data["curriculum_bbox"])
         max_allowed_bad = max(0, int(self.n_agnts * 0.2))
         self.mx_bad = min(self.mx_bad, max_allowed_bad)
 
@@ -212,6 +229,22 @@ class CLI:
                 self.use_robust_ensemble = False
             elif i.lower() in ("-no_adv_train", "--no_adversarial_train"):
                 self.adversarial_train = False
+            elif i.startswith("--event_impact="):
+                self.event_impact = i[i.find("=")+1:]
+            elif i.lower() == "--no_bbox_villain_points":
+                self.bbox_villain_points = False
+            elif i.lower() == "--no_kaiser_effects":
+                self.kaiser_effects = False
+            elif i.startswith("--event_choice="):
+                self.event_choice = i[i.find("=")+1:]
+            elif i.startswith("--eval_episodes="):
+                self.eval_episodes = int(i[i.find("=")+1:])
+            elif i.startswith("--adversary_max_position="):
+                self.adversary_max_position = float(i[i.find("=")+1:])
+            elif i.startswith("--lp_max_inventory="):
+                self.lp_max_inventory = int(i[i.find("=")+1:])
+            elif i.lower() == "--curriculum_bbox":
+                self.curriculum_bbox = True
             else:
                 pass
         max_allowed_bad = max(0, int(self.n_agnts * 0.2))

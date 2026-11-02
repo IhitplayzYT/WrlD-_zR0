@@ -1,0 +1,1912 @@
+[
+ {
+  "variant": "full",
+  "seed": 1,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -5.784787551156544,
+    "adversary_reward": -2.7918404756394484,
+    "ordinary_return": -0.00521372144496882,
+    "adversary_return": 0.0033261725031868694
+   },
+   {
+    "ordinary_reward": -5.525877695250021,
+    "adversary_reward": -3.20456642762949,
+    "ordinary_return": 0.0010986417539646173,
+    "adversary_return": -0.015732378705565486
+   },
+   {
+    "ordinary_reward": -9.02424952932868,
+    "adversary_reward": -3.9060678536243953,
+    "ordinary_return": -0.023883013916767667,
+    "adversary_return": -0.026272426098747026
+   },
+   {
+    "ordinary_reward": -7.478941793915678,
+    "adversary_reward": -2.929431842580395,
+    "ordinary_return": -0.01520883216199455,
+    "adversary_return": -0.01414135382098217
+   }
+  ],
+  "train_ordinary_return": -0.01520883216199455,
+  "train_ordinary_reward": -7.478941793915678,
+  "collapses": 1,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 1
+  },
+  "mean_length": 391.03333333333336,
+  "eval_ordinary_return": 0.020375334157732544,
+  "eval_adversary_return": -0.0011104090257268774,
+  "eval_per_episode": {
+   "rlaif": [
+    0.0520977217049102,
+    0.030711915540507312,
+    0.033544796930677495,
+    0.0005979764507630658,
+    -0.015075739838195351
+   ],
+   "adversarial": [
+    0.024076082300082735,
+    0.01545968453217439,
+    0.011554439200496258,
+    -0.05914333342249156,
+    0.002501082261103793
+   ]
+  },
+  "eval_buy_and_hold": 0.15483980106707249,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 18.566666666666666,
+   "switch_rate": 0.8107407407407408,
+   "mean_margin": 0.004746103493369254,
+   "mean_accuracy": 0.9711981720356404,
+   "ensemble_accuracy": 0.9768510087895154,
+   "best_beats_ensemble": 0.7789473684210527,
+   "king_share": {
+    "agent_0": 0.22800718132854578,
+    "agent_1": 0.20466786355475763,
+    "agent_2": 0.13824057450628366,
+    "agent_3": 0.22621184919210055,
+    "agent_4": 0.20287253141831238
+   }
+  },
+  "adversary": {
+   "events_per_episode": 2.3666666666666667,
+   "natural_events_per_episode": 45.8,
+   "villain_points_end": 1.9333333333333333,
+   "pnl_term": -0.47298920811111494,
+   "damage_term": 0.4954939076703837,
+   "kaiser_term": 0.20218111511249656,
+   "drawdown_term": -3.4186775846579334,
+   "profile": {
+    "aggression_style": "volatility_spike",
+    "risk_preference": 0.40189825173874133,
+    "patience_factor": 1.8172137551441196,
+    "adaptation_rate": 0.13933873353322004,
+    "decision_volatility": 0.1842215250010104,
+    "event_selection_noise": 0.14578895301505018
+   }
+  },
+  "liquidity_provider": {
+   "wealth": 437.8557826126232,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 98.27766717890873,
+  "trades_per_episode": 1111.0
+ },
+ {
+  "variant": "full",
+  "seed": 2,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -6.845271358957299,
+    "adversary_reward": -2.7067908264020057,
+    "ordinary_return": -0.020525405036539053,
+    "adversary_return": -0.007980215971543983
+   },
+   {
+    "ordinary_reward": -7.2391739757964135,
+    "adversary_reward": -4.022409169349736,
+    "ordinary_return": -0.011090424441149094,
+    "adversary_return": -0.029227094231584025
+   },
+   {
+    "ordinary_reward": -8.209513484353488,
+    "adversary_reward": -3.2351406357098513,
+    "ordinary_return": -0.022744566617473927,
+    "adversary_return": -0.029504712085669262
+   },
+   {
+    "ordinary_reward": -5.978045140010382,
+    "adversary_reward": -2.8050614468058988,
+    "ordinary_return": 0.002007667456164212,
+    "adversary_return": -0.007026173584763222
+   }
+  ],
+  "train_ordinary_return": 0.002007667456164212,
+  "train_ordinary_reward": -5.978045140010382,
+  "collapses": 1,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 1
+  },
+  "mean_length": 388.6,
+  "eval_ordinary_return": 0.004412171982575352,
+  "eval_adversary_return": -0.014258077338696773,
+  "eval_per_episode": {
+   "adversarial": [
+    -0.014347333280007146,
+    -0.013757970481061421,
+    -0.014680870988833195,
+    -0.013445957171051903,
+    -0.0150582547725302
+   ],
+   "rlaif": [
+    0.012500025556267863,
+    0.012740733771737456,
+    0.025798807117618644,
+    -0.02559657689322628,
+    -0.00338212963952092
+   ]
+  },
+  "eval_buy_and_hold": 0.15523544634081768,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 18.433333333333334,
+   "switch_rate": 0.8148148148148147,
+   "mean_margin": 0.004522798568348933,
+   "mean_accuracy": 0.9724681662043612,
+   "ensemble_accuracy": 0.9771646156368567,
+   "best_beats_ensemble": 0.7912280701754386,
+   "king_share": {
+    "agent_0": 0.21699819168173598,
+    "agent_1": 0.244122965641953,
+    "agent_2": 0.17721518987341772,
+    "agent_3": 0.14466546112115733,
+    "agent_4": 0.21699819168173598
+   }
+  },
+  "adversary": {
+   "events_per_episode": 2.4,
+   "natural_events_per_episode": 44.63333333333333,
+   "villain_points_end": 2.0,
+   "pnl_term": -0.6791862062389472,
+   "damage_term": 0.5362654368301147,
+   "kaiser_term": 0.17403194577289371,
+   "drawdown_term": -3.2349449944848696,
+   "profile": {
+    "aggression_style": "volatility_spike",
+    "risk_preference": 0.43218372424233586,
+    "patience_factor": 1.0247394275049488,
+    "adaptation_rate": 0.2871149938329201,
+    "decision_volatility": 0.14034864525299307,
+    "event_selection_noise": 0.11404067252149148
+   }
+  },
+  "liquidity_provider": {
+   "wealth": 617.9138875814689,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 97.32424612544803,
+  "trades_per_episode": 1098.0333333333333
+ },
+ {
+  "variant": "full",
+  "seed": 3,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -6.314701803771906,
+    "adversary_reward": -3.0759405513453606,
+    "ordinary_return": -0.014860301567648126,
+    "adversary_return": -0.0027678889771890758
+   },
+   {
+    "ordinary_reward": -7.021383424707189,
+    "adversary_reward": -3.2533456504574394,
+    "ordinary_return": -0.01346822322782899,
+    "adversary_return": -0.01489742235767555
+   },
+   {
+    "ordinary_reward": -8.028802090041696,
+    "adversary_reward": -3.756844231973423,
+    "ordinary_return": -0.021693174854230727,
+    "adversary_return": -0.031058562882061214
+   },
+   {
+    "ordinary_reward": -4.150790445870048,
+    "adversary_reward": -2.3442110749087846,
+    "ordinary_return": 0.022626474279645068,
+    "adversary_return": 0.008587302136966901
+   }
+  ],
+  "train_ordinary_return": 0.022626474279645068,
+  "train_ordinary_reward": -4.150790445870048,
+  "collapses": 0,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 0
+  },
+  "mean_length": 400.0,
+  "eval_ordinary_return": 0.0022857533652764495,
+  "eval_adversary_return": -0.013084795047301844,
+  "eval_per_episode": {
+   "rlaif": [
+    -0.003636410615790564,
+    -0.00020541884028627,
+    0.02609350128011076,
+    -0.011994606053662982,
+    0.001171701056011304
+   ],
+   "adversarial": [
+    -0.014178524666382475,
+    -0.012367963305129348,
+    -0.012303677484349795,
+    -0.011596877469470912,
+    -0.014976932311176694
+   ]
+  },
+  "eval_buy_and_hold": 0.16848041902365649,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 19.0,
+   "switch_rate": 0.7759259259259259,
+   "mean_margin": 0.004463391632723417,
+   "mean_accuracy": 0.9729499987702007,
+   "ensemble_accuracy": 0.9781351774034251,
+   "best_beats_ensemble": 0.7894736842105262,
+   "king_share": {
+    "agent_0": 0.1456140350877193,
+    "agent_1": 0.3473684210526316,
+    "agent_2": 0.17543859649122806,
+    "agent_3": 0.19824561403508772,
+    "agent_4": 0.13333333333333333
+   }
+  },
+  "adversary": {
+   "events_per_episode": 2.066666666666667,
+   "natural_events_per_episode": 45.333333333333336,
+   "villain_points_end": 2.2,
+   "pnl_term": -0.4782767788088966,
+   "damage_term": 0.32759135815853385,
+   "kaiser_term": 0.2834889263289998,
+   "drawdown_term": -3.244192731098565,
+   "profile": {
+    "aggression_style": "front_run",
+    "risk_preference": 0.8855972534837604,
+    "patience_factor": 1.5085755138692205,
+    "adaptation_rate": 0.46113364341535923,
+    "decision_volatility": 0.26915017425863585,
+    "event_selection_noise": 0.08779940413288892
+   }
+  },
+  "liquidity_provider": {
+   "wealth": 292.037491136075,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 100.96308401000867,
+  "trades_per_episode": 1143.8
+ },
+ {
+  "variant": "full",
+  "seed": 4,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -8.046252798455566,
+    "adversary_reward": -4.450596854586173,
+    "ordinary_return": -0.025411934345368942,
+    "adversary_return": -0.022086024215966213
+   },
+   {
+    "ordinary_reward": -8.90387860012171,
+    "adversary_reward": -3.570364698901891,
+    "ordinary_return": -0.032136064082639554,
+    "adversary_return": -0.020160883767498555
+   },
+   {
+    "ordinary_reward": -7.118309662495947,
+    "adversary_reward": -4.585759164253953,
+    "ordinary_return": -0.0076638779444478345,
+    "adversary_return": -0.03472265933422859
+   },
+   {
+    "ordinary_reward": -6.3551825680411005,
+    "adversary_reward": -3.654949731966807,
+    "ordinary_return": 0.0011357469780326718,
+    "adversary_return": -0.02156407036368784
+   }
+  ],
+  "train_ordinary_return": 0.0011357469780326718,
+  "train_ordinary_reward": -6.3551825680411005,
+  "collapses": 0,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 0
+  },
+  "mean_length": 400.0,
+  "eval_ordinary_return": -0.004534648840950078,
+  "eval_adversary_return": -0.01396329646392076,
+  "eval_per_episode": {
+   "adversarial": [
+    -0.013663578580761393,
+    -0.012643394228350702,
+    -0.014712252434379347,
+    -0.012623350348818563,
+    -0.016173906727293796
+   ],
+   "rlaif": [
+    0.0057636842727119,
+    0.0019878743339623584,
+    0.008471827261112536,
+    -0.02766148645195629,
+    -0.011235143620580895
+   ]
+  },
+  "eval_buy_and_hold": 0.10222387630845739,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 19.0,
+   "switch_rate": 0.787037037037037,
+   "mean_margin": 0.0045514078396667835,
+   "mean_accuracy": 0.9694880181765806,
+   "ensemble_accuracy": 0.9763104952126239,
+   "best_beats_ensemble": 0.7719298245614037,
+   "king_share": {
+    "agent_0": 0.11929824561403508,
+    "agent_1": 0.3543859649122807,
+    "agent_2": 0.2578947368421053,
+    "agent_3": 0.17192982456140352,
+    "agent_4": 0.09649122807017543
+   }
+  },
+  "adversary": {
+   "events_per_episode": 2.033333333333333,
+   "natural_events_per_episode": 45.93333333333333,
+   "villain_points_end": 1.6666666666666667,
+   "pnl_term": -1.104444524718294,
+   "damage_term": 0.287590685424493,
+   "kaiser_term": 0.2951601972005722,
+   "drawdown_term": -3.5400615146217675,
+   "profile": {
+    "aggression_style": "momentum_reverse",
+    "risk_preference": 0.8061168703814321,
+    "patience_factor": 1.887729743807489,
+    "adaptation_rate": 0.448122590594207,
+    "decision_volatility": 0.267051341416979,
+    "event_selection_noise": 0.07609720759704217
+   }
+  },
+  "liquidity_provider": {
+   "wealth": 818.9822872294392,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 99.78637560690758,
+  "trades_per_episode": 1134.4666666666667
+ },
+ {
+  "variant": "full",
+  "seed": 5,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -4.253739105430293,
+    "adversary_reward": -2.286351922800846,
+    "ordinary_return": 0.004244199461474359,
+    "adversary_return": 0.0032787457303850714
+   },
+   {
+    "ordinary_reward": -6.9135663761795385,
+    "adversary_reward": -4.474810684465313,
+    "ordinary_return": -0.011948142197127712,
+    "adversary_return": -0.043839613042900114
+   },
+   {
+    "ordinary_reward": -8.585050636623818,
+    "adversary_reward": -3.480925831069914,
+    "ordinary_return": -0.026277246927639053,
+    "adversary_return": -0.03312863548291053
+   },
+   {
+    "ordinary_reward": -9.281742463979812,
+    "adversary_reward": -3.053327309945827,
+    "ordinary_return": -0.0242351163876428,
+    "adversary_return": -0.020844468879578963
+   }
+  ],
+  "train_ordinary_return": -0.0242351163876428,
+  "train_ordinary_reward": -9.281742463979812,
+  "collapses": 0,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 0
+  },
+  "mean_length": 400.0,
+  "eval_ordinary_return": 0.03683871846734159,
+  "eval_adversary_return": -0.0005508221752808628,
+  "eval_per_episode": {
+   "adversarial": [
+    -0.0008560081926259899,
+    -0.0009256653371428891,
+    -0.000386175736518779,
+    -0.00024052221595172174,
+    -0.0003457393941649345
+   ],
+   "rlaif": [
+    0.09560945486609806,
+    0.04732885729267727,
+    0.04338822231083833,
+    0.016891962515407727,
+    -0.019024904648313468
+   ]
+  },
+  "eval_buy_and_hold": 0.18063710880690323,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 19.0,
+   "switch_rate": 0.8037037037037037,
+   "mean_margin": 0.004643188288643151,
+   "mean_accuracy": 0.9724473266251096,
+   "ensemble_accuracy": 0.9772595495901936,
+   "best_beats_ensemble": 0.7947368421052633,
+   "king_share": {
+    "agent_0": 0.21228070175438596,
+    "agent_1": 0.21578947368421053,
+    "agent_2": 0.09824561403508772,
+    "agent_3": 0.25263157894736843,
+    "agent_4": 0.22105263157894736
+   }
+  },
+  "adversary": {
+   "events_per_episode": 2.433333333333333,
+   "natural_events_per_episode": 45.03333333333333,
+   "villain_points_end": 2.033333333333333,
+   "pnl_term": -1.0265491357065526,
+   "damage_term": 0.4029667918546936,
+   "kaiser_term": 0.3400105358370616,
+   "drawdown_term": -3.0440639534931866,
+   "profile": {
+    "aggression_style": "volatility_spike",
+    "risk_preference": 0.8761360291714164,
+    "patience_factor": 0.7826219833939028,
+    "adaptation_rate": 0.10972262465179479,
+    "decision_volatility": 0.14091110927599013,
+    "event_selection_noise": 0.11998436141265574
+   }
+  },
+  "liquidity_provider": {
+   "wealth": 687.6548373809441,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 100.06883242116992,
+  "trades_per_episode": 1134.4
+ },
+ {
+  "variant": "no_adversary",
+  "seed": 1,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -5.117654538658465,
+    "adversary_reward": NaN,
+    "ordinary_return": -0.0018350728797411498,
+    "adversary_return": NaN
+   },
+   {
+    "ordinary_reward": -6.269267652196331,
+    "adversary_reward": NaN,
+    "ordinary_return": -0.005580645511673716,
+    "adversary_return": NaN
+   },
+   {
+    "ordinary_reward": -9.188106582291443,
+    "adversary_reward": NaN,
+    "ordinary_return": -0.028431217979024963,
+    "adversary_return": NaN
+   },
+   {
+    "ordinary_reward": -8.293953055742964,
+    "adversary_reward": NaN,
+    "ordinary_return": -0.017934281139499863,
+    "adversary_return": NaN
+   }
+  ],
+  "train_ordinary_return": -0.017934281139499863,
+  "train_ordinary_reward": -8.293953055742964,
+  "collapses": 0,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 0
+  },
+  "mean_length": 400.0,
+  "eval_ordinary_return": 0.0027694456665553614,
+  "eval_adversary_return": NaN,
+  "eval_per_episode": {
+   "rlaif": [
+    0.010567210468466693,
+    -0.00040221749365323414,
+    0.05670527650030719,
+    -0.036353191674550936,
+    -0.01666984946779291
+   ]
+  },
+  "eval_buy_and_hold": 0.08273721731669566,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 19.0,
+   "switch_rate": 0.8037037037037036,
+   "mean_margin": 0.004558970390704425,
+   "mean_accuracy": 0.972872684512282,
+   "ensemble_accuracy": 0.9781612984111987,
+   "best_beats_ensemble": 0.7982456140350876,
+   "king_share": {
+    "agent_0": 0.19473684210526315,
+    "agent_1": 0.19298245614035087,
+    "agent_2": 0.1456140350877193,
+    "agent_3": 0.22807017543859648,
+    "agent_4": 0.23859649122807017
+   }
+  },
+  "adversary": {
+   "events_per_episode": 0.0,
+   "natural_events_per_episode": 47.63333333333333,
+   "villain_points_end": NaN,
+   "pnl_term": NaN,
+   "damage_term": NaN,
+   "kaiser_term": NaN,
+   "drawdown_term": NaN,
+   "profile": null
+  },
+  "liquidity_provider": {
+   "wealth": 539.8238607665741,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 99.98320750175388,
+  "trades_per_episode": 1135.8666666666666
+ },
+ {
+  "variant": "no_adversary",
+  "seed": 2,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -6.8801701969171205,
+    "adversary_reward": NaN,
+    "ordinary_return": -0.021862729333600985,
+    "adversary_return": NaN
+   },
+   {
+    "ordinary_reward": -7.082022180736331,
+    "adversary_reward": NaN,
+    "ordinary_return": -0.012027741746143447,
+    "adversary_return": NaN
+   },
+   {
+    "ordinary_reward": -6.4137072071245385,
+    "adversary_reward": NaN,
+    "ordinary_return": -0.007074382394509604,
+    "adversary_return": NaN
+   },
+   {
+    "ordinary_reward": -6.866561589849501,
+    "adversary_reward": NaN,
+    "ordinary_return": -0.00498666346795393,
+    "adversary_return": NaN
+   }
+  ],
+  "train_ordinary_return": -0.00498666346795393,
+  "train_ordinary_reward": -6.866561589849501,
+  "collapses": 1,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 1
+  },
+  "mean_length": 389.53333333333336,
+  "eval_ordinary_return": -0.0016265947603554354,
+  "eval_adversary_return": NaN,
+  "eval_per_episode": {
+   "rlaif": [
+    -0.00552357423690617,
+    0.003639953936502005,
+    0.010134311044207544,
+    -0.011640412705189496,
+    -0.004743251840391061
+   ]
+  },
+  "eval_buy_and_hold": 0.08273949310903891,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 18.5,
+   "switch_rate": 0.8018518518518518,
+   "mean_margin": 0.004393405246915469,
+   "mean_accuracy": 0.972740532198434,
+   "ensemble_accuracy": 0.9774648692237698,
+   "best_beats_ensemble": 0.8087719298245613,
+   "king_share": {
+    "agent_0": 0.19099099099099098,
+    "agent_1": 0.2990990990990991,
+    "agent_2": 0.16396396396396395,
+    "agent_3": 0.16936936936936936,
+    "agent_4": 0.17657657657657658
+   }
+  },
+  "adversary": {
+   "events_per_episode": 0.0,
+   "natural_events_per_episode": 45.233333333333334,
+   "villain_points_end": NaN,
+   "pnl_term": NaN,
+   "damage_term": NaN,
+   "kaiser_term": NaN,
+   "drawdown_term": NaN,
+   "profile": null
+  },
+  "liquidity_provider": {
+   "wealth": 496.5324831350692,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 96.05266632359908,
+  "trades_per_episode": 1085.0
+ },
+ {
+  "variant": "no_adversary",
+  "seed": 3,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -7.630902817131563,
+    "adversary_reward": NaN,
+    "ordinary_return": -0.027840253521601986,
+    "adversary_return": NaN
+   },
+   {
+    "ordinary_reward": -6.6277748507181125,
+    "adversary_reward": NaN,
+    "ordinary_return": -0.012057012997472385,
+    "adversary_return": NaN
+   },
+   {
+    "ordinary_reward": -7.077215090162505,
+    "adversary_reward": NaN,
+    "ordinary_return": -0.013562035056426811,
+    "adversary_return": NaN
+   },
+   {
+    "ordinary_reward": -6.294417862639619,
+    "adversary_reward": NaN,
+    "ordinary_return": 0.001952631694913284,
+    "adversary_return": NaN
+   }
+  ],
+  "train_ordinary_return": 0.001952631694913284,
+  "train_ordinary_reward": -6.294417862639619,
+  "collapses": 0,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 0
+  },
+  "mean_length": 400.0,
+  "eval_ordinary_return": 0.012238734538847829,
+  "eval_adversary_return": NaN,
+  "eval_per_episode": {
+   "rlaif": [
+    0.02450786275349772,
+    0.03315917748900492,
+    0.05880044551471828,
+    -0.021446682228459024,
+    -0.03382713083452275
+   ]
+  },
+  "eval_buy_and_hold": 0.08265922098110705,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 19.0,
+   "switch_rate": 0.7574074074074073,
+   "mean_margin": 0.004977164286693693,
+   "mean_accuracy": 0.971584718962246,
+   "ensemble_accuracy": 0.9769111864457546,
+   "best_beats_ensemble": 0.8140350877192982,
+   "king_share": {
+    "agent_0": 0.11929824561403508,
+    "agent_1": 0.3368421052631579,
+    "agent_2": 0.16842105263157894,
+    "agent_3": 0.22280701754385965,
+    "agent_4": 0.15263157894736842
+   }
+  },
+  "adversary": {
+   "events_per_episode": 0.0,
+   "natural_events_per_episode": 46.13333333333333,
+   "villain_points_end": NaN,
+   "pnl_term": NaN,
+   "damage_term": NaN,
+   "kaiser_term": NaN,
+   "drawdown_term": NaN,
+   "profile": null
+  },
+  "liquidity_provider": {
+   "wealth": 566.9263684027715,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 100.48022440254557,
+  "trades_per_episode": 1135.0666666666666
+ },
+ {
+  "variant": "no_adversary",
+  "seed": 4,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -7.978567686964562,
+    "adversary_reward": NaN,
+    "ordinary_return": -0.029094940217546515,
+    "adversary_return": NaN
+   },
+   {
+    "ordinary_reward": -7.7701153084807055,
+    "adversary_reward": NaN,
+    "ordinary_return": -0.02182421814714683,
+    "adversary_return": NaN
+   },
+   {
+    "ordinary_reward": -10.4249028831387,
+    "adversary_reward": NaN,
+    "ordinary_return": -0.036684456151910884,
+    "adversary_return": NaN
+   },
+   {
+    "ordinary_reward": -6.560245230962538,
+    "adversary_reward": NaN,
+    "ordinary_return": -0.0034172642474385078,
+    "adversary_return": NaN
+   }
+  ],
+  "train_ordinary_return": -0.0034172642474385078,
+  "train_ordinary_reward": -6.560245230962538,
+  "collapses": 2,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 2
+  },
+  "mean_length": 389.76666666666665,
+  "eval_ordinary_return": 0.0004425983763073349,
+  "eval_adversary_return": NaN,
+  "eval_per_episode": {
+   "rlaif": [
+    0.01913711071370765,
+    -0.0012420414587189343,
+    0.025699795902708055,
+    -0.03053065460236164,
+    -0.010851218673798457
+   ]
+  },
+  "eval_buy_and_hold": 0.08269017410473826,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 18.5,
+   "switch_rate": 0.7715686274509804,
+   "mean_margin": 0.005029909045367072,
+   "mean_accuracy": 0.9692279151967207,
+   "ensemble_accuracy": 0.9761036013278067,
+   "best_beats_ensemble": 0.7882261208576999,
+   "king_share": {
+    "agent_0": 0.11171171171171171,
+    "agent_1": 0.3207207207207207,
+    "agent_2": 0.2882882882882883,
+    "agent_3": 0.15855855855855855,
+    "agent_4": 0.12072072072072072
+   }
+  },
+  "adversary": {
+   "events_per_episode": 0.0,
+   "natural_events_per_episode": 44.9,
+   "villain_points_end": NaN,
+   "pnl_term": NaN,
+   "damage_term": NaN,
+   "kaiser_term": NaN,
+   "drawdown_term": NaN,
+   "profile": null
+  },
+  "liquidity_provider": {
+   "wealth": 1049.7476343274132,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 97.02788186089857,
+  "trades_per_episode": 1107.1
+ },
+ {
+  "variant": "no_adversary",
+  "seed": 5,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -3.8005354118527324,
+    "adversary_reward": NaN,
+    "ordinary_return": 0.006075935653801498,
+    "adversary_return": NaN
+   },
+   {
+    "ordinary_reward": -6.200181373969434,
+    "adversary_reward": NaN,
+    "ordinary_return": -0.0056052793046981846,
+    "adversary_return": NaN
+   },
+   {
+    "ordinary_reward": -9.278829582858048,
+    "adversary_reward": NaN,
+    "ordinary_return": -0.03268404858184289,
+    "adversary_return": NaN
+   },
+   {
+    "ordinary_reward": -7.992184854868833,
+    "adversary_reward": NaN,
+    "ordinary_return": -0.014937440864719891,
+    "adversary_return": NaN
+   }
+  ],
+  "train_ordinary_return": -0.014937440864719891,
+  "train_ordinary_reward": -7.992184854868833,
+  "collapses": 0,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 0
+  },
+  "mean_length": 400.0,
+  "eval_ordinary_return": 0.0006210633391864518,
+  "eval_adversary_return": NaN,
+  "eval_per_episode": {
+   "rlaif": [
+    0.011244615926396561,
+    0.01850953412626246,
+    0.020458837901913184,
+    -0.026319554065464556,
+    -0.020788117193175394
+   ]
+  },
+  "eval_buy_and_hold": 0.0826530917044475,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 19.0,
+   "switch_rate": 0.7777777777777778,
+   "mean_margin": 0.0046077726177306075,
+   "mean_accuracy": 0.9732144192064454,
+   "ensemble_accuracy": 0.9785234680209377,
+   "best_beats_ensemble": 0.8140350877192983,
+   "king_share": {
+    "agent_0": 0.22807017543859648,
+    "agent_1": 0.18947368421052632,
+    "agent_2": 0.09824561403508772,
+    "agent_3": 0.23859649122807017,
+    "agent_4": 0.24561403508771928
+   }
+  },
+  "adversary": {
+   "events_per_episode": 0.0,
+   "natural_events_per_episode": 47.0,
+   "villain_points_end": NaN,
+   "pnl_term": NaN,
+   "damage_term": NaN,
+   "kaiser_term": NaN,
+   "drawdown_term": NaN,
+   "profile": null
+  },
+  "liquidity_provider": {
+   "wealth": 449.8042393463633,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 99.50438620881398,
+  "trades_per_episode": 1123.4
+ },
+ {
+  "variant": "no_kaiser",
+  "seed": 1,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -5.45269383739845,
+    "adversary_reward": -2.9263956528566,
+    "ordinary_return": -0.003330222965724914,
+    "adversary_return": 0.0028435718500142565
+   },
+   {
+    "ordinary_reward": -5.759177179819369,
+    "adversary_reward": -3.477225077730407,
+    "ordinary_return": -0.0015793846427858242,
+    "adversary_return": -0.015181301031305647
+   },
+   {
+    "ordinary_reward": -9.10809033606554,
+    "adversary_reward": -3.7128720412490472,
+    "ordinary_return": -0.023226205338648807,
+    "adversary_return": -0.015438495556106642
+   },
+   {
+    "ordinary_reward": -7.614098043967524,
+    "adversary_reward": -3.217065199191284,
+    "ordinary_return": -0.017111175827930012,
+    "adversary_return": -0.012595207866074392
+   }
+  ],
+  "train_ordinary_return": -0.017111175827930012,
+  "train_ordinary_reward": -7.614098043967524,
+  "collapses": 1,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 1
+  },
+  "mean_length": 391.03333333333336,
+  "eval_ordinary_return": 0.015500344428000228,
+  "eval_adversary_return": 0.034864517885110934,
+  "eval_per_episode": {
+   "adversarial": [
+    0.09514463544762886,
+    0.038440922567331226,
+    0.05706200249248483,
+    -0.0040281864826462455,
+    -0.012296784599243993
+   ],
+   "rlaif": [
+    0.03609159817065083,
+    0.024296183039900332,
+    0.035464542693275924,
+    -0.015016482977795897,
+    -0.0033341187860300436
+   ]
+  },
+  "eval_buy_and_hold": 0.15968562555730184,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 18.566666666666666,
+   "switch_rate": 0.7877777777777778,
+   "mean_margin": 0.004772773898254001,
+   "mean_accuracy": 0.9715345006542411,
+   "ensemble_accuracy": 0.9772392561602111,
+   "best_beats_ensemble": 0.7789473684210527,
+   "king_share": {
+    "agent_0": 0.1867145421903052,
+    "agent_1": 0.22082585278276481,
+    "agent_2": 0.1561938958707361,
+    "agent_3": 0.20287253141831238,
+    "agent_4": 0.2333931777378815
+   }
+  },
+  "adversary": {
+   "events_per_episode": 2.433333333333333,
+   "natural_events_per_episode": 45.266666666666666,
+   "villain_points_end": 2.1666666666666665,
+   "pnl_term": -0.3725570455496514,
+   "damage_term": 0.4716621233872706,
+   "kaiser_term": 0.0,
+   "drawdown_term": -3.423722628763565,
+   "profile": {
+    "aggression_style": "volatility_spike",
+    "risk_preference": 0.40189825173874133,
+    "patience_factor": 1.8172137551441196,
+    "adaptation_rate": 0.13933873353322004,
+    "decision_volatility": 0.1842215250010104,
+    "event_selection_noise": 0.14578895301505018
+   }
+  },
+  "liquidity_provider": {
+   "wealth": 430.05892615285615,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 97.10503169451302,
+  "trades_per_episode": 1098.5
+ },
+ {
+  "variant": "no_kaiser",
+  "seed": 2,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -6.688791413682209,
+    "adversary_reward": -3.036848319360252,
+    "ordinary_return": -0.019693194208268042,
+    "adversary_return": -0.010266968685026884
+   },
+   {
+    "ordinary_reward": -6.591448584496058,
+    "adversary_reward": -4.0773257670459735,
+    "ordinary_return": -0.005537249077677782,
+    "adversary_return": -0.024137638598753175
+   },
+   {
+    "ordinary_reward": -9.299947000409729,
+    "adversary_reward": -4.051779912524361,
+    "ordinary_return": -0.03155611527002344,
+    "adversary_return": -0.03813269536445737
+   },
+   {
+    "ordinary_reward": -5.7334030739473105,
+    "adversary_reward": -2.6869634465798886,
+    "ordinary_return": 0.005191216114556236,
+    "adversary_return": 0.0017899857826733565
+   }
+  ],
+  "train_ordinary_return": 0.005191216114556236,
+  "train_ordinary_reward": -5.7334030739473105,
+  "collapses": 1,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 1
+  },
+  "mean_length": 388.6,
+  "eval_ordinary_return": 0.013458584660982159,
+  "eval_adversary_return": -0.014243213909749097,
+  "eval_per_episode": {
+   "adversarial": [
+    -0.014347348507250168,
+    -0.01360835583791864,
+    -0.01467905680362569,
+    -0.013523032640705202,
+    -0.015058275759245787
+   ],
+   "rlaif": [
+    0.02829262455416187,
+    0.018012790656710076,
+    0.020720186909423677,
+    0.005265109471429719,
+    -0.004997788286814547
+   ]
+  },
+  "eval_buy_and_hold": 0.1572483821421256,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 18.433333333333334,
+   "switch_rate": 0.7907407407407406,
+   "mean_margin": 0.004466574487444992,
+   "mean_accuracy": 0.9720274096478855,
+   "ensemble_accuracy": 0.9766583913116219,
+   "best_beats_ensemble": 0.7833333333333334,
+   "king_share": {
+    "agent_0": 0.18264014466546113,
+    "agent_1": 0.27486437613019893,
+    "agent_2": 0.14828209764918626,
+    "agent_3": 0.19168173598553345,
+    "agent_4": 0.20253164556962025
+   }
+  },
+  "adversary": {
+   "events_per_episode": 2.3,
+   "natural_events_per_episode": 45.13333333333333,
+   "villain_points_end": 2.2333333333333334,
+   "pnl_term": -0.6473481524350325,
+   "damage_term": 0.4675851168937575,
+   "kaiser_term": 0.0,
+   "drawdown_term": -3.2897235046247113,
+   "profile": {
+    "aggression_style": "volatility_spike",
+    "risk_preference": 0.43218372424233586,
+    "patience_factor": 1.0247394275049488,
+    "adaptation_rate": 0.2871149938329201,
+    "decision_volatility": 0.14034864525299307,
+    "event_selection_noise": 0.11404067252149148
+   }
+  },
+  "liquidity_provider": {
+   "wealth": 594.7166483287331,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 97.02574728661672,
+  "trades_per_episode": 1092.9666666666667
+ },
+ {
+  "variant": "no_kaiser",
+  "seed": 3,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -6.411652730766113,
+    "adversary_reward": -3.2671080574279685,
+    "ordinary_return": -0.01541282414063835,
+    "adversary_return": -0.0031650795860602016
+   },
+   {
+    "ordinary_reward": -6.2514155780756795,
+    "adversary_reward": -3.545231532761502,
+    "ordinary_return": -0.006322957773099554,
+    "adversary_return": -0.00907648952318195
+   },
+   {
+    "ordinary_reward": -7.554438831569963,
+    "adversary_reward": -3.974994272792383,
+    "ordinary_return": -0.01664632029472244,
+    "adversary_return": -0.028931240808089113
+   },
+   {
+    "ordinary_reward": -4.743288984543382,
+    "adversary_reward": -2.5798482785986048,
+    "ordinary_return": 0.015740016729233232,
+    "adversary_return": 0.009597339179914375
+   }
+  ],
+  "train_ordinary_return": 0.015740016729233232,
+  "train_ordinary_reward": -4.743288984543382,
+  "collapses": 0,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 0
+  },
+  "mean_length": 400.0,
+  "eval_ordinary_return": 0.0043483734168637935,
+  "eval_adversary_return": -0.012963055329917705,
+  "eval_per_episode": {
+   "adversarial": [
+    -0.014178903699357814,
+    -0.012899939029126672,
+    -0.011897470856284564,
+    -0.0132905993987108,
+    -0.012548363666108675
+   ],
+   "rlaif": [
+    0.024029219282436926,
+    0.005207796480931226,
+    0.01993855298868602,
+    -0.012472794518365443,
+    -0.014960907149369762
+   ]
+  },
+  "eval_buy_and_hold": 0.17708394320237664,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 19.0,
+   "switch_rate": 0.775925925925926,
+   "mean_margin": 0.004706337270908307,
+   "mean_accuracy": 0.9727271806686694,
+   "ensemble_accuracy": 0.9783033604669887,
+   "best_beats_ensemble": 0.794736842105263,
+   "king_share": {
+    "agent_0": 0.15087719298245614,
+    "agent_1": 0.32105263157894737,
+    "agent_2": 0.16842105263157894,
+    "agent_3": 0.21578947368421053,
+    "agent_4": 0.14385964912280702
+   }
+  },
+  "adversary": {
+   "events_per_episode": 2.1666666666666665,
+   "natural_events_per_episode": 45.36666666666667,
+   "villain_points_end": 1.9,
+   "pnl_term": -0.38815326634500313,
+   "damage_term": 0.3236209456356073,
+   "kaiser_term": 0.0,
+   "drawdown_term": -3.281554831999027,
+   "profile": {
+    "aggression_style": "front_run",
+    "risk_preference": 0.8855972534837604,
+    "patience_factor": 1.5085755138692205,
+    "adaptation_rate": 0.46113364341535923,
+    "decision_volatility": 0.26915017425863585,
+    "event_selection_noise": 0.08779940413288892
+   }
+  },
+  "liquidity_provider": {
+   "wealth": 217.22034423768844,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 100.84345087713704,
+  "trades_per_episode": 1142.1666666666667
+ },
+ {
+  "variant": "no_kaiser",
+  "seed": 4,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -6.935048069144729,
+    "adversary_reward": -4.342708888776494,
+    "ordinary_return": -0.0172459723714221,
+    "adversary_return": -0.01922196135618391
+   },
+   {
+    "ordinary_reward": -8.988730775729444,
+    "adversary_reward": -4.025681261995741,
+    "ordinary_return": -0.03415482558965688,
+    "adversary_return": -0.023678468069806252
+   },
+   {
+    "ordinary_reward": -7.165358861507814,
+    "adversary_reward": -4.514740930140753,
+    "ordinary_return": -0.00852700918047641,
+    "adversary_return": -0.03824138058722691
+   },
+   {
+    "ordinary_reward": -6.947510071191377,
+    "adversary_reward": -3.446956717258442,
+    "ordinary_return": -0.006237264540311209,
+    "adversary_return": -0.017388491945279392
+   }
+  ],
+  "train_ordinary_return": -0.006237264540311209,
+  "train_ordinary_reward": -6.947510071191377,
+  "collapses": 0,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 0
+  },
+  "mean_length": 400.0,
+  "eval_ordinary_return": 0.0041366780317810435,
+  "eval_adversary_return": 0.0,
+  "eval_per_episode": {
+   "adversarial": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "rlaif": [
+    0.03135432025150692,
+    0.011868354509221385,
+    0.017562059218740073,
+    -0.030591195379731484,
+    -0.009510148440831673
+   ]
+  },
+  "eval_buy_and_hold": 0.10826786439074179,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 19.0,
+   "switch_rate": 0.762962962962963,
+   "mean_margin": 0.005058224182763525,
+   "mean_accuracy": 0.9688495779186782,
+   "ensemble_accuracy": 0.9758424942876267,
+   "best_beats_ensemble": 0.7982456140350876,
+   "king_share": {
+    "agent_0": 0.08947368421052632,
+    "agent_1": 0.32280701754385965,
+    "agent_2": 0.30350877192982456,
+    "agent_3": 0.15087719298245614,
+    "agent_4": 0.13333333333333333
+   }
+  },
+  "adversary": {
+   "events_per_episode": 2.1666666666666665,
+   "natural_events_per_episode": 45.733333333333334,
+   "villain_points_end": 1.7,
+   "pnl_term": -1.0992774150596714,
+   "damage_term": 0.3461321275465388,
+   "kaiser_term": 0.0,
+   "drawdown_term": -3.3361548704192767,
+   "profile": {
+    "aggression_style": "momentum_reverse",
+    "risk_preference": 0.8061168703814321,
+    "patience_factor": 1.887729743807489,
+    "adaptation_rate": 0.448122590594207,
+    "decision_volatility": 0.267051341416979,
+    "event_selection_noise": 0.07609720759704217
+   }
+  },
+  "liquidity_provider": {
+   "wealth": 832.0406083099181,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 98.23863904742811,
+  "trades_per_episode": 1116.8
+ },
+ {
+  "variant": "no_kaiser",
+  "seed": 5,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -4.241621677044311,
+    "adversary_reward": -2.9287732232777106,
+    "ordinary_return": 0.0043504481382023105,
+    "adversary_return": -0.0002316184077887501
+   },
+   {
+    "ordinary_reward": -6.894671148977199,
+    "adversary_reward": -4.862947471577833,
+    "ordinary_return": -0.012387644105052335,
+    "adversary_return": -0.047197801909667714
+   },
+   {
+    "ordinary_reward": -8.828696715579294,
+    "adversary_reward": -3.4758258470637946,
+    "ordinary_return": -0.02949772507397521,
+    "adversary_return": -0.025219986018143126
+   },
+   {
+    "ordinary_reward": -9.258948476954732,
+    "adversary_reward": -3.171932205665719,
+    "ordinary_return": -0.0252865775525996,
+    "adversary_return": -0.016814283811333715
+   }
+  ],
+  "train_ordinary_return": -0.0252865775525996,
+  "train_ordinary_reward": -9.258948476954732,
+  "collapses": 0,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 0
+  },
+  "mean_length": 400.0,
+  "eval_ordinary_return": 0.007245828904876355,
+  "eval_adversary_return": -0.014807418868419343,
+  "eval_per_episode": {
+   "adversarial": [
+    -0.013862155696277134,
+    -0.01354883732576495,
+    -0.015023310752045993,
+    -0.013255707557405572,
+    -0.01834708301060306
+   ],
+   "rlaif": [
+    0.02595875263473857,
+    0.017080298908302483,
+    0.03551156305554787,
+    -0.022234376345988738,
+    -0.020087093728218403
+   ]
+  },
+  "eval_buy_and_hold": 0.12844871468365146,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 19.0,
+   "switch_rate": 0.7962962962962963,
+   "mean_margin": 0.004485898969867706,
+   "mean_accuracy": 0.9727392662062261,
+   "ensemble_accuracy": 0.9776295997100692,
+   "best_beats_ensemble": 0.812280701754386,
+   "king_share": {
+    "agent_0": 0.20877192982456141,
+    "agent_1": 0.21052631578947367,
+    "agent_2": 0.11754385964912281,
+    "agent_3": 0.24210526315789474,
+    "agent_4": 0.22105263157894736
+   }
+  },
+  "adversary": {
+   "events_per_episode": 2.4,
+   "natural_events_per_episode": 45.233333333333334,
+   "villain_points_end": 2.2,
+   "pnl_term": -0.9874695184882553,
+   "damage_term": 0.3891984825223557,
+   "kaiser_term": 0.0,
+   "drawdown_term": -3.030664694965802,
+   "profile": {
+    "aggression_style": "volatility_spike",
+    "risk_preference": 0.8761360291714164,
+    "patience_factor": 0.7826219833939028,
+    "adaptation_rate": 0.10972262465179479,
+    "decision_volatility": 0.14091110927599013,
+    "event_selection_noise": 0.11998436141265574
+   }
+  },
+  "liquidity_provider": {
+   "wealth": 721.5235101303675,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 100.08515514605398,
+  "trades_per_episode": 1133.1666666666667
+ },
+ {
+  "variant": "legacy_ramp",
+  "seed": 1,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -6.010276666487986,
+    "adversary_reward": 5.468042874880231,
+    "ordinary_return": 0.023626816808913022,
+    "adversary_return": 0.03442564659298454
+   },
+   {
+    "ordinary_reward": -2.1824863887727353,
+    "adversary_reward": 7.106970383011147,
+    "ordinary_return": 0.06670470384326348,
+    "adversary_return": 0.05618062201989382
+   },
+   {
+    "ordinary_reward": -5.825130427646411,
+    "adversary_reward": 0.7751185230958372,
+    "ordinary_return": 0.03850514320405342,
+    "adversary_return": 0.04790033824412476
+   },
+   {
+    "ordinary_reward": -5.6356079144555045,
+    "adversary_reward": 6.327683358178803,
+    "ordinary_return": 0.03995121686137563,
+    "adversary_return": 0.04134534346514861
+   }
+  ],
+  "train_ordinary_return": 0.03995121686137563,
+  "train_ordinary_reward": -5.6356079144555045,
+  "collapses": 0,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 0
+  },
+  "mean_length": 400.0,
+  "eval_ordinary_return": 0.08723962413219818,
+  "eval_adversary_return": 0.004885557611792368,
+  "eval_per_episode": {
+   "rlaif": [
+    0.05840863442421368,
+    0.08461169111097527,
+    0.1750591613452666,
+    0.10762730633069717,
+    0.010491327449838217
+   ],
+   "adversarial": [
+    0.004892329615127977,
+    -0.018100516139092915,
+    0.040457714018045765,
+    -0.002243883512423772,
+    -0.000577855922695214
+   ]
+  },
+  "eval_buy_and_hold": 0.16688324188031511,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 19.0,
+   "switch_rate": 0.8018518518518518,
+   "mean_margin": 0.005553461680616176,
+   "mean_accuracy": 0.9592145841210573,
+   "ensemble_accuracy": 0.9634999377372943,
+   "best_beats_ensemble": 0.8526315789473685,
+   "king_share": {
+    "agent_0": 0.1824561403508772,
+    "agent_1": 0.22280701754385965,
+    "agent_2": 0.1824561403508772,
+    "agent_3": 0.21754385964912282,
+    "agent_4": 0.19473684210526315
+   }
+  },
+  "adversary": {
+   "events_per_episode": 2.3333333333333335,
+   "natural_events_per_episode": 46.7,
+   "villain_points_end": 2.033333333333333,
+   "pnl_term": 1.4568688310091316,
+   "damage_term": 9.239323094171178,
+   "kaiser_term": 0.30935933071182936,
+   "drawdown_term": -5.994893948157027,
+   "profile": {
+    "aggression_style": "volatility_spike",
+    "risk_preference": 0.40189825173874133,
+    "patience_factor": 1.8172137551441196,
+    "adaptation_rate": 0.13933873353322004,
+    "decision_volatility": 0.1842215250010104,
+    "event_selection_noise": 0.14578895301505018
+   }
+  },
+  "liquidity_provider": {
+   "wealth": -2248.520463612246,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 102.86824242237917,
+  "trades_per_episode": 1141.6333333333334
+ },
+ {
+  "variant": "legacy_ramp",
+  "seed": 2,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -6.690667829270302,
+    "adversary_reward": 6.516252503136348,
+    "ordinary_return": 0.0069387903357374,
+    "adversary_return": 0.004635688905016172
+   },
+   {
+    "ordinary_reward": -4.505131334648322,
+    "adversary_reward": 3.714322550567391,
+    "ordinary_return": 0.045867765528423594,
+    "adversary_return": 0.03188610538734363
+   },
+   {
+    "ordinary_reward": -6.0148314861402605,
+    "adversary_reward": 8.444810987177856,
+    "ordinary_return": 0.0222045135527812,
+    "adversary_return": 0.017005962533760837
+   },
+   {
+    "ordinary_reward": -1.6090341927618503,
+    "adversary_reward": 7.09115554177807,
+    "ordinary_return": 0.06792048380537942,
+    "adversary_return": 0.03638399492429199
+   }
+  ],
+  "train_ordinary_return": 0.06792048380537942,
+  "train_ordinary_reward": -1.6090341927618503,
+  "collapses": 1,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 1
+  },
+  "mean_length": 389.2,
+  "eval_ordinary_return": 0.04584702166403796,
+  "eval_adversary_return": -0.014229568704541973,
+  "eval_per_episode": {
+   "adversarial": [
+    -0.015452744171669863,
+    -0.012727656764780604,
+    -0.015808378527900513,
+    -0.011515283710158641,
+    -0.015643780348200242
+   ],
+   "rlaif": [
+    0.031331064813128306,
+    0.05364776154740869,
+    0.0679589750967145,
+    0.08104695493563996,
+    -0.004749648072701673
+   ]
+  },
+  "eval_buy_and_hold": 0.15681994256478776,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 18.466666666666665,
+   "switch_rate": 0.7944444444444445,
+   "mean_margin": 0.004683318384534104,
+   "mean_accuracy": 0.9613925982576382,
+   "ensemble_accuracy": 0.9654019845574188,
+   "best_beats_ensemble": 0.8508771929824561,
+   "king_share": {
+    "agent_0": 0.22021660649819494,
+    "agent_1": 0.2545126353790614,
+    "agent_2": 0.148014440433213,
+    "agent_3": 0.17328519855595667,
+    "agent_4": 0.20397111913357402
+   }
+  },
+  "adversary": {
+   "events_per_episode": 2.3,
+   "natural_events_per_episode": 44.7,
+   "villain_points_end": 2.2666666666666666,
+   "pnl_term": 0.708141760106541,
+   "damage_term": 10.809640203808693,
+   "kaiser_term": 0.3710311873149969,
+   "drawdown_term": -5.535600946819499,
+   "profile": {
+    "aggression_style": "volatility_spike",
+    "risk_preference": 0.43218372424233586,
+    "patience_factor": 1.0247394275049488,
+    "adaptation_rate": 0.2871149938329201,
+    "decision_volatility": 0.14034864525299307,
+    "event_selection_noise": 0.11404067252149148
+   }
+  },
+  "liquidity_provider": {
+   "wealth": -1725.8614987586705,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 99.45690868303596,
+  "trades_per_episode": 1104.3
+ },
+ {
+  "variant": "legacy_ramp",
+  "seed": 3,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -5.739096581800732,
+    "adversary_reward": 1.1140407302642936,
+    "ordinary_return": 0.019690490776894266,
+    "adversary_return": 0.05100008552491071
+   },
+   {
+    "ordinary_reward": -4.509906644252142,
+    "adversary_reward": 3.272255345238672,
+    "ordinary_return": 0.03966215244542917,
+    "adversary_return": 0.04796684418326112
+   },
+   {
+    "ordinary_reward": -6.014945999203421,
+    "adversary_reward": 0.6471157819498868,
+    "ordinary_return": 0.01982470813046879,
+    "adversary_return": 0.01739428742284066
+   },
+   {
+    "ordinary_reward": -2.7442571550328654,
+    "adversary_reward": 3.547988205318611,
+    "ordinary_return": 0.05527305074045287,
+    "adversary_return": 0.06205919822625298
+   }
+  ],
+  "train_ordinary_return": 0.05527305074045287,
+  "train_ordinary_reward": -2.7442571550328654,
+  "collapses": 0,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 0
+  },
+  "mean_length": 400.0,
+  "eval_ordinary_return": 0.06612676440833627,
+  "eval_adversary_return": 0.16540440149624094,
+  "eval_per_episode": {
+   "adversarial": [
+    0.10916617626470626,
+    0.190307289080349,
+    0.29724646262472687,
+    0.05557509641406333,
+    0.17472698309735923
+   ],
+   "rlaif": [
+    0.04620541092834651,
+    0.08815323761018018,
+    0.11070565418139067,
+    0.007224178549759597,
+    0.07834534077200439
+   ]
+  },
+  "eval_buy_and_hold": 0.1504084729067559,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 19.0,
+   "switch_rate": 0.7555555555555556,
+   "mean_margin": 0.005692653022124747,
+   "mean_accuracy": 0.9611431773484382,
+   "ensemble_accuracy": 0.9659852101479742,
+   "best_beats_ensemble": 0.8596491228070177,
+   "king_share": {
+    "agent_0": 0.16666666666666666,
+    "agent_1": 0.3543859649122807,
+    "agent_2": 0.13508771929824562,
+    "agent_3": 0.2,
+    "agent_4": 0.14385964912280702
+   }
+  },
+  "adversary": {
+   "events_per_episode": 2.1333333333333333,
+   "natural_events_per_episode": 45.43333333333333,
+   "villain_points_end": 2.066666666666667,
+   "pnl_term": 1.916845333880187,
+   "damage_term": 5.283369951742537,
+   "kaiser_term": 0.4767417185967569,
+   "drawdown_term": -5.528420453722717,
+   "profile": {
+    "aggression_style": "front_run",
+    "risk_preference": 0.8855972534837604,
+    "patience_factor": 1.5085755138692205,
+    "adaptation_rate": 0.46113364341535923,
+    "decision_volatility": 0.26915017425863585,
+    "event_selection_noise": 0.08779940413288892
+   }
+  },
+  "liquidity_provider": {
+   "wealth": -1887.8043303242068,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 104.49377408780914,
+  "trades_per_episode": 1159.0333333333333
+ },
+ {
+  "variant": "legacy_ramp",
+  "seed": 4,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -5.363957723638699,
+    "adversary_reward": 1.4855905039850295,
+    "ordinary_return": 0.04063410456242594,
+    "adversary_return": 0.04226117822806169
+   },
+   {
+    "ordinary_reward": -7.538151289305757,
+    "adversary_reward": 1.3417191881977888,
+    "ordinary_return": 0.013973617957297277,
+    "adversary_return": 0.036220289157931726
+   },
+   {
+    "ordinary_reward": -4.436396490187103,
+    "adversary_reward": 1.6875001953004227,
+    "ordinary_return": 0.04271580601535548,
+    "adversary_return": 0.02400705299321742
+   },
+   {
+    "ordinary_reward": -5.451325775589969,
+    "adversary_reward": 2.00252138772695,
+    "ordinary_return": 0.04509156787154619,
+    "adversary_return": 0.056932916100031435
+   }
+  ],
+  "train_ordinary_return": 0.04509156787154619,
+  "train_ordinary_reward": -5.451325775589969,
+  "collapses": 0,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 0
+  },
+  "mean_length": 400.0,
+  "eval_ordinary_return": 0.09218805833935506,
+  "eval_adversary_return": 0.030025451606164034,
+  "eval_per_episode": {
+   "adversarial": [
+    0.03582032665777479,
+    0.02504594737192911,
+    0.0838857016434682,
+    -0.005525287931947842,
+    0.010900570289595901
+   ],
+   "rlaif": [
+    0.0794857206668777,
+    0.14327539233509418,
+    0.14682643414905305,
+    0.04545069932762408,
+    0.0459020452181263
+   ]
+  },
+  "eval_buy_and_hold": 0.1291261787224671,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 19.0,
+   "switch_rate": 0.8074074074074074,
+   "mean_margin": 0.005597103243232649,
+   "mean_accuracy": 0.9565063149694409,
+   "ensemble_accuracy": 0.9616043981789233,
+   "best_beats_ensemble": 0.8807017543859649,
+   "king_share": {
+    "agent_0": 0.13333333333333333,
+    "agent_1": 0.2894736842105263,
+    "agent_2": 0.24561403508771928,
+    "agent_3": 0.18070175438596492,
+    "agent_4": 0.15087719298245614
+   }
+  },
+  "adversary": {
+   "events_per_episode": 2.1333333333333333,
+   "natural_events_per_episode": 47.13333333333333,
+   "villain_points_end": 2.2,
+   "pnl_term": 1.607519300816071,
+   "damage_term": 5.919572241537898,
+   "kaiser_term": 0.4776551748780066,
+   "drawdown_term": -6.389792429943507,
+   "profile": {
+    "aggression_style": "momentum_reverse",
+    "risk_preference": 0.8061168703814321,
+    "patience_factor": 1.887729743807489,
+    "adaptation_rate": 0.448122590594207,
+    "decision_volatility": 0.267051341416979,
+    "event_selection_noise": 0.07609720759704217
+   }
+  },
+  "liquidity_provider": {
+   "wealth": -1903.4706011301098,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 103.30889706175023,
+  "trades_per_episode": 1148.6333333333334
+ },
+ {
+  "variant": "legacy_ramp",
+  "seed": 5,
+  "episodes": 30,
+  "episode_len": 400,
+  "curriculum": false,
+  "curve": [
+   {
+    "ordinary_reward": -3.3603552093735423,
+    "adversary_reward": 5.099753688949795,
+    "ordinary_return": 0.04314501262618853,
+    "adversary_return": 0.04224233727159342
+   },
+   {
+    "ordinary_reward": -4.199696713469908,
+    "adversary_reward": 2.4838405651156874,
+    "ordinary_return": 0.05805939146590027,
+    "adversary_return": -0.005266840352171662
+   },
+   {
+    "ordinary_reward": -7.335298859083459,
+    "adversary_reward": 2.4084574254503894,
+    "ordinary_return": 0.012094479490543862,
+    "adversary_return": 0.017641191743279574
+   },
+   {
+    "ordinary_reward": -6.25227808070767,
+    "adversary_reward": 4.843425466833375,
+    "ordinary_return": 0.026551951427513328,
+    "adversary_return": -0.0036648860686911183
+   }
+  ],
+  "train_ordinary_return": 0.026551951427513328,
+  "train_ordinary_reward": -6.25227808070767,
+  "collapses": 0,
+  "collapse_drivers": {
+   "tape": 0,
+   "news_or_flow": 0
+  },
+  "mean_length": 400.0,
+  "eval_ordinary_return": 0.07490361180581,
+  "eval_adversary_return": -2.3564911023199465e-05,
+  "eval_per_episode": {
+   "rlaif": [
+    0.04883465218776151,
+    0.10570740770608461,
+    0.13984436746899287,
+    0.03222393745945831,
+    0.04790769420675267
+   ],
+   "adversarial": [
+    0.0,
+    -0.00011782455511599732,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "eval_buy_and_hold": 0.12881166664402532,
+  "eval_mean_length": 400.0,
+  "bbox": {
+   "rounds_per_episode": 19.0,
+   "switch_rate": 0.8037037037037037,
+   "mean_margin": 0.005944731002344709,
+   "mean_accuracy": 0.9589291161024976,
+   "ensemble_accuracy": 0.9632232737457909,
+   "best_beats_ensemble": 0.8614035087719297,
+   "king_share": {
+    "agent_0": 0.17894736842105263,
+    "agent_1": 0.22631578947368422,
+    "agent_2": 0.1456140350877193,
+    "agent_3": 0.20526315789473684,
+    "agent_4": 0.24385964912280703
+   }
+  },
+  "adversary": {
+   "events_per_episode": 2.566666666666667,
+   "natural_events_per_episode": 46.166666666666664,
+   "villain_points_end": 1.8,
+   "pnl_term": 0.4906040262138204,
+   "damage_term": 8.228234006230377,
+   "kaiser_term": 0.48628546403196005,
+   "drawdown_term": -5.490725687192497,
+   "profile": {
+    "aggression_style": "volatility_spike",
+    "risk_preference": 0.8761360291714164,
+    "patience_factor": 0.7826219833939028,
+    "adaptation_rate": 0.10972262465179479,
+    "decision_volatility": 0.14091110927599013,
+    "event_selection_noise": 0.11998436141265574
+   }
+  },
+  "liquidity_provider": {
+   "wealth": -1674.759894998926,
+   "limit_hits": 0.0
+  },
+  "fees_per_episode": 103.33352442228669,
+  "trades_per_episode": 1148.5666666666666
+ }
+]

@@ -64,8 +64,7 @@ class SummaryModel:
             ]
         }
     
-    def _initialize_patterns(self) -> Dict[str, List[str]]:
-        return {'uptrend': ['increasing', 'rising', 'bullish', 'positive'],'downtrend': ['decreasing', 'falling', 'bearish', 'negative'],'high_volatility': ['volatile', 'unstable', 'fluctuating'],'low_volatility': ['stable', 'calm', 'steady'],'high_volume': ['heavy', 'active', 'busy'],'low_volume': ['light', 'thin', 'quiet']}
+    def _initialize_patterns(self) -> Dict[str, List[str]]: return {'uptrend': ['increasing', 'rising', 'bullish', 'positive'],'downtrend': ['decreasing', 'falling', 'bearish', 'negative'],'high_volatility': ['volatile', 'unstable', 'fluctuating'],'low_volatility': ['stable', 'calm', 'steady'],'high_volume': ['heavy', 'active', 'busy'],'low_volume': ['light', 'thin', 'quiet']}
     
     def summarize_market_activity(self,market_state: Dict[str, Any],price_history: List[float],volume: float,n_steps: int) -> Summary:
         if len(price_history) > 1:
@@ -88,14 +87,10 @@ class SummaryModel:
         n_trades = len(trade_history)
         total_return = performance.get('total_return', 0.0)
         avg_profit = performance.get('avg_profit', 0.0)
-        if total_return > 0.1:
-            behavior = "aggressive profitable"
-        elif total_return > 0:
-            behavior = "conservative profitable"
-        elif total_return > -0.1:
-            behavior = "cautious"
-        else:
-            behavior = "loss-making"
+        if total_return > 0.1: behavior = "aggressive profitable"
+        elif total_return > 0: behavior = "conservative profitable"
+        elif total_return > -0.1: behavior = "cautious"
+        else: behavior = "loss-making"
         performance_desc = "strong" if total_return > 0.05 else "moderate" if total_return > 0 else "weak"
         risk_tolerance = agent_state.get('risk_tolerance', 0.5)
         risk_desc = "high" if risk_tolerance > 0.7 else "moderate" if risk_tolerance > 0.3 else "low"
@@ -125,16 +120,12 @@ class SummaryModel:
             strength = 0.0
         else:
             recent_prices = price_history[-10:]
-            if recent_prices[-1] > recent_prices[0]:
-                trend = "uptrend"
-            elif recent_prices[-1] < recent_prices[0]:
-                trend = "downtrend"
-            else:
-                trend = "sideways"
+            if recent_prices[-1] > recent_prices[0]: trend = "uptrend"
+            elif recent_prices[-1] < recent_prices[0]: trend = "downtrend"
+            else: trend = "sideways"
             price_range = max(recent_prices) - min(recent_prices)
             avg_price = sum(recent_prices) / len(recent_prices)
             strength = price_range / avg_price if avg_price > 0 else 0.0
-        
         strength_desc = "strong" if strength > 0.05 else "moderate" if strength > 0.02 else "weak"
         confidence_desc = "high" if regime_confidence > 0.7 else "moderate" if regime_confidence > 0.5 else "low"
         template = self.templates[SummaryType.TREND_ANALYSIS][0]
@@ -162,20 +153,16 @@ class SummaryModel:
         return Summary(summary_type=SummaryType.OVERVIEW,content=content,key_points=key_points,metrics={'top_return': top_return,'avg_return': avg_return,'n_events': n_events})
     
     def generate_commentary(self,summaries: List[Summary],max_length: int = 500) -> str:
-        if not summaries:
-            return "No data available for commentary."
+        if not summaries: return "No data available for commentary."
         commentary_parts = []
         current_length = 0
         for summary in summaries:
-            if current_length + len(summary.content) > max_length:
-                break
+            if current_length + len(summary.content) > max_length: break
             commentary_parts.append(summary.content)
             current_length += len(summary.content)
         all_key_points = []
-        for summary in summaries:
-            all_key_points.extend(summary.key_points)
+        for summary in summaries: all_key_points.extend(summary.key_points)
         if all_key_points:
             commentary_parts.append("\nKey Points:")
-            for point in all_key_points[:5]:  # Limit to top 5
-                commentary_parts.append(f"- {point}")
+            for point in all_key_points[:5]: commentary_parts.append(f"- {point}")
         return "\n\n".join(commentary_parts)

@@ -1,0 +1,322 @@
+{
+ "description": "Fixed (event_impact=jump) vs legacy (event_impact=ramp) event model. Same code, seed 42, 60 episodes x 1000 steps, 5 agents (4 ordinary + 1 adversary), frozen greedy evaluation every 10 episodes on 3 held-out seeds at level-3 difficulty. Single seed: descriptive only. NOTE: the 60-episode A/B runs used the first calibration (news_decay .97, magnitude .5, product-capped volatility); defaults were recalibrated afterwards with the predictability audit.",
+ "jump": {
+  "evaluation": [
+   {
+    "episode": 10,
+    "ordinary_return": -0.026408347018189938,
+    "adversary_return": 0.0,
+    "buy_and_hold": -0.33691730294322747,
+    "mean_length": 700.0
+   },
+   {
+    "episode": 20,
+    "ordinary_return": 0.014549869498315604,
+    "adversary_return": 0.0,
+    "buy_and_hold": -0.33746838099219584,
+    "mean_length": 629.6666666666666
+   },
+   {
+    "episode": 30,
+    "ordinary_return": -0.019335823195791708,
+    "adversary_return": 0.0,
+    "buy_and_hold": -0.3346588451938219,
+    "mean_length": 632.0
+   },
+   {
+    "episode": 40,
+    "ordinary_return": -0.008065409290273579,
+    "adversary_return": 0.0,
+    "buy_and_hold": -0.3374631227517277,
+    "mean_length": 629.6666666666666
+   },
+   {
+    "episode": 50,
+    "ordinary_return": 0.01124478699966222,
+    "adversary_return": 0.0,
+    "buy_and_hold": -0.33746100413071617,
+    "mean_length": 629.6666666666666
+   },
+   {
+    "episode": 60,
+    "ordinary_return": 0.019902737718211456,
+    "adversary_return": 0.0,
+    "buy_and_hold": -0.33692074728756943,
+    "mean_length": 700.0
+   }
+  ],
+  "training_by_15_episodes": [
+   {
+    "episodes": "1-15",
+    "ordinary_reward": -14.527103269374381,
+    "adversary_reward": -19.084459510628697,
+    "ordinary_return": -0.022123605178928807,
+    "adversary_return": -0.14947575463697932,
+    "collapse_terminations": 2
+   },
+   {
+    "episodes": "16-30",
+    "ordinary_reward": -15.767158564866081,
+    "adversary_reward": -14.999268943113217,
+    "ordinary_return": -0.033284166555650016,
+    "adversary_return": -0.1449217214440735,
+    "collapse_terminations": 2
+   },
+   {
+    "episodes": "31-45",
+    "ordinary_reward": -13.758201880053127,
+    "adversary_reward": -9.070913367029407,
+    "ordinary_return": -0.019009065141124375,
+    "adversary_return": -0.11638643089014353,
+    "collapse_terminations": 0
+   },
+   {
+    "episodes": "46-60",
+    "ordinary_reward": -13.477936645368924,
+    "adversary_reward": -5.833218296452363,
+    "ordinary_return": -0.022186617060954848,
+    "adversary_return": -0.0675499646184767,
+    "collapse_terminations": 0
+   }
+  ],
+  "bbox": {
+   "rounds_per_episode": 48.38333333333333,
+   "winner_switches_per_episode": 36.93333333333333,
+   "mean_top2_margin": 0.00338776430542945,
+   "mean_individual_accuracy": 0.9729166456154716,
+   "mean_ensemble_accuracy": 0.9767378170114378,
+   "best_individual_beats_ensemble": 0.8286289163064365,
+   "kaiser_term_mean_per_episode": 1.524459005782198,
+   "other_damage_mean_per_episode": 0.4414881305424789
+  }
+ },
+ "ramp": {
+  "evaluation": [
+   {
+    "episode": 10,
+    "ordinary_return": 0.05877953600675739,
+    "adversary_return": 0.0,
+    "buy_and_hold": -0.2298816527723089,
+    "mean_length": 1000.0
+   },
+   {
+    "episode": 20,
+    "ordinary_return": 0.269368689715242,
+    "adversary_return": 0.0,
+    "buy_and_hold": -0.22987709417467558,
+    "mean_length": 1000.0
+   },
+   {
+    "episode": 30,
+    "ordinary_return": 0.30497774283493895,
+    "adversary_return": 0.0,
+    "buy_and_hold": -0.2298895399737961,
+    "mean_length": 1000.0
+   },
+   {
+    "episode": 40,
+    "ordinary_return": 0.5283391627668667,
+    "adversary_return": 0.19281577422889526,
+    "buy_and_hold": -0.22989780011731656,
+    "mean_length": 1000.0
+   },
+   {
+    "episode": 50,
+    "ordinary_return": 1.272535020335185,
+    "adversary_return": 0.46392591205465505,
+    "buy_and_hold": -0.23194647640263166,
+    "mean_length": 1000.0
+   },
+   {
+    "episode": 60,
+    "ordinary_return": 1.2550978053438064,
+    "adversary_return": 0.30357442351308755,
+    "buy_and_hold": -0.30205088500817984,
+    "mean_length": 912.3333333333334
+   }
+  ],
+  "training_by_15_episodes": [
+   {
+    "episodes": "1-15",
+    "ordinary_reward": -12.418839244248458,
+    "adversary_reward": -7.916000575060033,
+    "ordinary_return": -0.01421211703863479,
+    "adversary_return": -0.10963386259786642,
+    "collapse_terminations": 1
+   },
+   {
+    "episodes": "16-30",
+    "ordinary_reward": -12.394667998869966,
+    "adversary_reward": -2.649930281196483,
+    "ordinary_return": -0.019375435091359652,
+    "adversary_return": -0.11323393893946548,
+    "collapse_terminations": 0
+   },
+   {
+    "episodes": "31-45",
+    "ordinary_reward": -8.174189422656225,
+    "adversary_reward": 3.353899476320143,
+    "ordinary_return": 0.00815366124799097,
+    "adversary_return": -0.08140452765812366,
+    "collapse_terminations": 0
+   },
+   {
+    "episodes": "46-60",
+    "ordinary_reward": -5.665121248048279,
+    "adversary_reward": 4.610241536616256,
+    "ordinary_return": 0.022723359700091695,
+    "adversary_return": -0.05125720362655044,
+    "collapse_terminations": 0
+   }
+  ]
+ },
+ "original_checkpoint_diagnosis": {
+  "note": "research42 ep100 policies, 3 held-out episodes, level-3 difficulty. Rows 1-6 measured on the original code path before the fix; rows 7-9 with the final code (scripts/diagnose_exploit.py).",
+  "rows": [
+   {
+    "variant": "baseline (legacy dynamics)",
+    "ordinary": 4.191,
+    "adversary": 11.314,
+    "buy_and_hold": -0.397
+   },
+   {
+    "variant": "no events",
+    "ordinary": -0.047,
+    "adversary": -0.104,
+    "buy_and_hold": -0.373
+   },
+   {
+    "variant": "no company shocks",
+    "ordinary": 3.687,
+    "adversary": 11.891,
+    "buy_and_hold": -0.393
+   },
+   {
+    "variant": "no flow impact",
+    "ordinary": 4.521,
+    "adversary": 12.127,
+    "buy_and_hold": -0.387
+   },
+   {
+    "variant": "no deviation decay",
+    "ordinary": 11.071,
+    "adversary": 13.609,
+    "buy_and_hold": -0.397
+   },
+   {
+    "variant": "spread 1%",
+    "ordinary": 2.877,
+    "adversary": 5.962,
+    "buy_and_hold": -0.397
+   },
+   {
+    "variant": "legacy event ramp (final code)",
+    "ordinary": 3.05,
+    "adversary": 7.517,
+    "buy_and_hold": -0.405
+   },
+   {
+    "variant": "legacy ramp + no events (final code)",
+    "ordinary": -0.05,
+    "adversary": -0.102,
+    "buy_and_hold": -0.373
+   },
+   {
+    "variant": "fixed jump model (final code)",
+    "ordinary": 0.402,
+    "adversary": 0.521,
+    "buy_and_hold": -0.512
+   }
+  ]
+ },
+ "predictability_audit": {
+  "note": "scripts/predictability_audit.py, hold-only agents, level-3 event rate, 4 held-out seeds (about 8,000 steps per row, 7,000 for slow decay), costs 0.12% round trip. Edges are net per trade of a long-only rule, in-sample upper bounds, +/-0.07% sampling noise. Rows 2-4 used the earlier product-capped volatility rule; the final defaults are the last row.",
+  "rows": [
+   {
+    "model": "ramp (legacy)",
+    "observable_r2": 0.0323,
+    "observable_edge": 0.005684,
+    "oracle_edge": 0.009592,
+    "deviation_sd": 0.074
+   },
+   {
+    "model": "jump decay .97 mag .5",
+    "observable_r2": 0.0009,
+    "observable_edge": 0.002821,
+    "oracle_edge": 0.002187,
+    "deviation_sd": 0.089
+   },
+   {
+    "model": "jump decay .98 mag .5",
+    "observable_r2": 0.0011,
+    "observable_edge": 0.001894,
+    "oracle_edge": 0.00149,
+    "deviation_sd": 0.091
+   },
+   {
+    "model": "jump decay .99 mag .5",
+    "observable_r2": 0.0005,
+    "observable_edge": 0.00224,
+    "oracle_edge": 0.0008,
+    "deviation_sd": 0.135
+   },
+   {
+    "model": "jump decay .99 mag .35 (default)",
+    "observable_r2": 0.0007,
+    "observable_edge": -0.000581,
+    "oracle_edge": 0.000742,
+    "deviation_sd": 0.125
+   }
+  ]
+ },
+ "null_checks": {
+  "note": "Untrained random agents, 10 held-out seeds, 500 steps, final defaults, mean +/- s.e.",
+  "random_play_by_order_type_no_events_8_seeds": {
+   "market_only_before_and_after_fix": [
+    -0.0051,
+    0.0172
+   ],
+   "limit_only_before_fix": [
+    -0.1071,
+    0.015
+   ],
+   "limit_only_after_fix": [
+    0.0013,
+    0.0183
+   ],
+   "format": "[mean return, standard error]"
+  },
+  "flat_tape_no_events": {
+   "ordinary": [
+    -0.0113,
+    0.0008
+   ],
+   "adversary_minus_ordinary": [
+    -0.0003,
+    0.0008
+   ]
+  },
+  "moving_tape_no_events": {
+   "ordinary": [
+    -0.0837,
+    0.0176
+   ],
+   "adversary_minus_ordinary": [
+    0.0017,
+    0.0122
+   ],
+   "note": "ordinary figure measured before the limit-order fix"
+  },
+  "with_events": {
+   "ordinary": [
+    -0.1588,
+    0.0177
+   ],
+   "adversary_minus_ordinary": [
+    0.0337,
+    0.0209
+   ],
+   "note": "measured before the limit-order fix"
+  }
+ }
+}

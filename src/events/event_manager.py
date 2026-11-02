@@ -5,7 +5,6 @@ from enum import Enum
 from typing import Dict, List, Optional, Callable, Tuple
 import numpy as np
 import random
-import time
 import json
 from pathlib import Path
 
@@ -72,26 +71,11 @@ class MarketEvent:
     last_triggered: Optional[float] = None
     
     def check_conditions(self, market_state: Dict) -> bool:
-        if self.conditions.min_price is not None:
-            if market_state.get('current_price', 0) < self.conditions.min_price:
-                return False
-        
-        if self.conditions.max_price is not None:
-            if market_state.get('current_price', float('inf')) > self.conditions.max_price:
-                return False
-        
-        if self.conditions.min_market_cap is not None:
-            if market_state.get('market_cap', 0) < self.conditions.min_market_cap:
-                return False
-        
-        if self.conditions.max_market_cap is not None:
-            if market_state.get('market_cap', float('inf')) > self.conditions.max_market_cap:
-                return False
-        
-        if self.conditions.custom_condition is not None:
-            if not self.conditions.custom_condition(market_state):
-                return False
-        
+        if (self.conditions.min_price is not None) and (market_state.get('current_price', 0) < self.conditions.min_price): return False
+        if (self.conditions.max_price is not None) and (market_state.get('current_price', float('inf')) > self.conditions.max_price): return False
+        if (self.conditions.min_market_cap is not None) and (market_state.get('market_cap', 0) < self.conditions.min_market_cap): return False
+        if (self.conditions.max_market_cap is not None) and (market_state.get('market_cap', float('inf')) > self.conditions.max_market_cap): return False
+        if (self.conditions.custom_condition is not None) and (not self.conditions.custom_condition(market_state)): return False
         return True
     
     def activate(self, step: int = 0):
@@ -105,15 +89,12 @@ class MarketEvent:
         self.start_time = None
         self.end_time = None
     
-    def is_expired(self, step: int = 0) -> bool:
-        return self.is_active and self.end_time is not None and step >= self.end_time
+    def is_expired(self, step: int = 0) -> bool: return self.is_active and self.end_time is not None and step >= self.end_time
     
     def can_trigger(self, market_state: Dict) -> bool:
-        if self.is_active:
-            return False
+        if self.is_active: return False
         if self.last_triggered is not None:
-            if (self.last_triggered + self.cooldown) - market_state.get("step", 0) > 0:
-                return False
+            if (self.last_triggered + self.cooldown) - market_state.get("step", 0) > 0: return False
         return self.check_conditions(market_state)
 
 class EventManager:
@@ -122,8 +103,7 @@ class EventManager:
         self.probability_scale = 1.0
         self.events: List[MarketEvent] = []
         self._event_counter = 0
-        if load_default:
-            self._initialize_default_events()
+        if load_default: self._initialize_default_events()
 
     def clear(self):
         self.events = []
@@ -133,36 +113,25 @@ class EventManager:
         self._event_counter += 1
         return self._event_counter
 
-    def add_event(self, event: MarketEvent):
-        self.events.append(event)
-    
-    def remove_event(self, event_id: int):
-        self.events = [e for e in self.events if e.id != event_id]
-    
+    def add_event(self, event: MarketEvent): self.events.append(event)
+    def remove_event(self, event_id: int): self.events = [e for e in self.events if e.id != event_id]
     def get_event(self, event_id: int) -> Optional[MarketEvent]:
         for event in self.events:
-            if event.id == event_id:
-                return event
+            if event.id == event_id: return event
         return None
     
-    def get_events_by_category(self, category: EventType) -> List[MarketEvent]:
-        return [e for e in self.events if e.category == category]
-    
-    def get_active_events(self) -> List[MarketEvent]:
-        return [e for e in self.events if e.is_active]
+    def get_events_by_category(self, category: EventType) -> List[MarketEvent]: return [e for e in self.events if e.category == category]
+    def get_active_events(self) -> List[MarketEvent]: return [e for e in self.events if e.is_active]
     
     def update(self, market_state: Dict):
-        """Update event states and trigger new events"""
         self.current_step = int(market_state.get("step", self.current_step + 1))
         market_state = {**market_state, "step": self.current_step}
         for event in self.events:
-            if event.is_active and event.is_expired(self.current_step):
-                event.deactivate(self.current_step)
+            if event.is_active and event.is_expired(self.current_step): event.deactivate(self.current_step)
         sorted_events = sorted(self.events, key=lambda e: e.priority, reverse=True)
         for event in sorted_events:
             if event.can_trigger(market_state):
-                if random.random() < (event.probability * self.probability_scale):
-                    event.activate(self.current_step)
+                if random.random() < (event.probability * self.probability_scale): event.activate(self.current_step)
     
     def trigger_event(self, event_id: int, market_state: Dict) -> bool:
         event = self.get_event(event_id)
@@ -171,16 +140,14 @@ class EventManager:
             return True
         return False
 
-    def get_triggerable_events(self, market_state: Dict) -> List[MarketEvent]:
-        return [e for e in self.events if e.can_trigger(market_state)]
+    def get_triggerable_events(self, market_state: Dict) -> List[MarketEvent]: return [e for e in self.events if e.can_trigger(market_state)]
 
     def agent_trigger_catalog(self, market_state: Dict, max_events: int = 32) -> Tuple[List[int], np.ndarray]:
         # Stable slots: removing an active event must not change every action's meaning.
         catalog = sorted(self.events, key=lambda e: e.id)[:max_events]
         ids = [e.id for e in catalog]
         mask = np.zeros(max_events, dtype=np.float32)
-        for i, event in enumerate(catalog):
-            mask[i] = float(event.can_trigger(market_state))
+        for i, event in enumerate(catalog): mask[i] = float(event.can_trigger(market_state))
         return ids, mask
 
     def get_event_effects(self) -> Dict:
@@ -206,8 +173,7 @@ class EventManager:
     
     def get_event_news(self) -> List[str]:
         news = []
-        for event in self.get_active_events():
-            news.append(f"EVENT: {event.name} - Impact on market expected")
+        for event in self.get_active_events(): news.append(f"EVENT: {event.name} - Impact on market expected")
         return news
     
     def reset(self):
@@ -218,14 +184,9 @@ class EventManager:
     
     def load_events_from_json(self, json_path: str):
         json_file = Path(json_path)
-        if not json_file.exists():
-            raise FileNotFoundError(f"Event file not found: {json_path}")
-        
-        with open(json_file, 'r') as f:
-            events_data = json.load(f)
-        
-        if isinstance(events_data, dict):
-            events_data = [events_data]
+        if not json_file.exists(): raise FileNotFoundError(f"Event file not found: {json_path}")
+        with open(json_file, 'r') as f: events_data = json.load(f)
+        if isinstance(events_data, dict): events_data = [events_data]
         for event_data in events_data:
             try:
                 category_str = event_data.get('category', 'ECONOMIC')
@@ -238,7 +199,6 @@ class EventManager:
             except Exception as e:
                 print(f"Warning: Failed to load event {event_data.get('name', 'unknown')}: {e}")
                 continue
-    
 
     def _initialize_default_events(self):
         # Economic events

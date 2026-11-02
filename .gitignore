@@ -1,7 +1,15 @@
 .env
 env/
 venv/
-
+.runs/
+checkpoints/
+logs/
+src/bbox_presence_ablation_experiments/
+src/forecast_ablation_experiments/
+src/forecast_experiments/
+src/full_ablation_experiments/
+src/mutation_ablation_experiments/
+market_simulation_project_and_results.zip
 __pycache__/
 *.py[cod]
 .runs/

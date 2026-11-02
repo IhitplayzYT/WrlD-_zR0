@@ -43,6 +43,24 @@ venv/bin/python -m src.main --gui --train --episode_len=20 --log_dir=.runs/gui/l
 
 The GUI is a one-episode live monitor; use the headless trainer for saved research runs. Its trading/forecast displays come from the actual environment. The standalone `src.gui.main` demo is illustrative and is labelled accordingly.
 
-Results are under `logs/training_<timestamp>/metrics.jsonl`, `training_log.json`, and `summary.json`. Inspect `reward_by_type`, `portfolio_returns`, `max_drawdowns`, `reward_components`, `policy_updates`, `trade_count`, `fees_collected`, and evaluation results. Negative training reward is allowed; compare frozen held-out net returns against cash and appropriate passive baselines. See [SUMMARY.md](SUMMARY.md) for precise assumptions and limitations.
+New options (see [docs/FIXES.md](docs/FIXES.md) for why):
+
+```bash
+--event_impact=jump|ramp   # 'jump' (default): event news arrives at onset. 'ramp' is the legacy, exploitable model
+--no_bbox_villain_points   # disable the default: Kaiser-adversary earns villain points (capped) from contest wins
+--no_kaiser_effects        # switch off every Kaiser channel (herding, targeting, bonus, policy inputs) for ablations
+--event_choice=prior|learned|heuristic   # how the adversary picks its event (default: heuristic as a learnable prior)
+--lp_max_inventory=N       # finite liquidity-provider inventory in shares (default 5000, 0 = unlimited)
+--eval_episodes=N          # held-out episodes per frozen evaluation (default 3); results include std and per-episode values
+--adversary_max_position=X # adversary single-asset cap (default 0.3 = ordinary agents; legacy 0.6)
+--curriculum_bbox          # use each curriculum level's bbox period (50/30/20/15) instead of --bbox_freq
+
+# Which simulator mechanism does a trained policy profit from? (ablation on frozen policies)
+venv/bin/python -m scripts.predictability_audit --episodes 5   # how much is still predictable under each event model
+venv/bin/python -m scripts.ablation_grid --seeds 1 2 3 4 5 --episodes 100 --episode-len 2000 --out ablation.json   # full / no_adversary / no_kaiser / legacy_ramp
+venv/bin/python -m scripts.diagnose_exploit --checkpoint=<policies_epN.pt> --hyperparameters=<run>/hyperparameters.json
+```
+
+Results are under `logs/training_<timestamp>/metrics.jsonl`, `training_log.json`, and `summary.json`. Inspect `reward_by_type`, `portfolio_returns`, `max_drawdowns`, `reward_components`, `policy_updates`, `trade_count`, `fees_collected`, the mechanism records (`bbox`, `events`, `liquidity_provider`, `adversary_profiles`, `villain_points`) and evaluation results. Negative training reward is allowed; compare frozen held-out net returns against cash and appropriate passive baselines. See [SUMMARY.md](SUMMARY.md) for precise assumptions and limitations.
 
 For a fresh environment, install the required packages with `python -m pip install -r requirements-core.txt`. Use the full `requirements.txt` only for the optional GUI, PDF/Excel, data-download and auxiliary model tools. Training uses CPU by default. The repository's old CUDA-specific install script is unnecessary for the trainer. Python/package compatibility depends on available wheels; this fix was exercised using the project's existing Python 3.14 environment.

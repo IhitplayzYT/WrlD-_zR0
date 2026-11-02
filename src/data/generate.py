@@ -1,7 +1,7 @@
 from __future__ import annotations
 import numpy as np
 import polars as pl
-
+import yfinance as yf
 
 regimes = {
     "Bull": {"drift": 0.0004, "vol": 0.006},
@@ -19,16 +19,13 @@ transition = {
     "Recovery": {"Recovery": 0.985, "Bull": 0.015}
 }
 
-# Generate realistic synthetic market data following market stats
 def generate_stock(n: int, start_price: float = 100.0, seed: int | None = None, vol: float = 1000.0) -> pl.DataFrame:
-    if n <= 0 or start_price <= 0:
-        raise ValueError("n and start_price must be > 0")
+    if n <= 0 or start_price <= 0: raise ValueError("n and start_price must be > 0")
     rng = np.random.default_rng(seed)
     prices = np.empty(n, dtype=np.float64)
     returns = np.empty(n, dtype=np.float64)
     volumes = np.empty(n, dtype=np.float64)
     regime_col = np.empty(n, dtype=object)
-
     prices[0] = fair_price = start_price
     returns[0] = 0.0
     state = "Sideways"
@@ -56,7 +53,6 @@ def generate_stock(n: int, start_price: float = 100.0, seed: int | None = None, 
         trend_decay = 0.995
         trend = trend_decay * trend + (1.0 - trend_decay) * drift
         fair_price *= np.exp(drift)
-
         deviation = np.log(max(prices[t - 1], 1e-6) / max(fair_price, 1e-6))
         mean_reversion = -mean_reversion_strength * deviation
 
@@ -68,8 +64,7 @@ def generate_stock(n: int, start_price: float = 100.0, seed: int | None = None, 
         jump_probability = {"Bull": 0.001, "Bear": 0.003, "Sideways": 0.0005, "Crash": 0.015, "Recovery": 0.005}.get(state, 0.002)
 
         jump = 0.0
-        if rng.random() < jump_probability:
-            jump = float(rng.normal(0.0, 4.0 * current_vol))
+        if rng.random() < jump_probability: jump = float(rng.normal(0.0, 4.0 * current_vol))
 
         seasonal = 0.0005 * np.sin(2.0 * np.pi * t / 250.0)
 
@@ -83,12 +78,10 @@ def generate_stock(n: int, start_price: float = 100.0, seed: int | None = None, 
     return pl.DataFrame({"t": np.arange(n, dtype=np.int64),"price": prices,"return": returns,"volume": volumes.astype(np.int64),"regime": regime_col})
 
 def fetch_aapl_data(start_date: str = "2016-01-01", end_date: str = "2022-12-31") -> pl.DataFrame:
-    import yfinance as yf
     try:
         ticker = yf.Ticker("AAPL")
         hist = ticker.history(start=start_date, end=end_date)
-        if hist.empty:
-            raise ValueError("No data in yfinance for AAPL")
+        if hist.empty: raise ValueError("No data in yfinance for AAPL")
         df = pl.DataFrame({"price": hist['Close'].values, "date": hist.index.values})
         return df
     except Exception as e:

@@ -1,10 +1,4 @@
-"""Seeded regime-switching synthetic prices; one tick is a simulation movement.
-
-These parameters are illustrative, not fitted to a real exchange. No regime
-labels or future prices are exposed in agent observations.
-"""
 import numpy as np
-
 
 def generate_market_prices(n_steps, seed=0, n_assets=1, volatility=.006):
     if n_steps < 2 or not 1 <= n_assets <= 10 or volatility <= 0:

@@ -1,4 +1,3 @@
-
 from tabulate import tabulate
 import polars as pl
 import re
@@ -9,7 +8,6 @@ def extract_pdf(pdf_path: str,describe_image) -> str:
       - normal text
       - tables (as Markdown)
       - images -> describe_image(image_bytes)
-    Returns one large string.
     """
     try:
         import pymupdf as fitz
@@ -33,7 +31,7 @@ def extract_pdf(pdf_path: str,describe_image) -> str:
                     output.append(f"\n## Table {idx}\n")
                     output.append(tabulate(rows,headers=headers,tablefmt="github"))
                     output.append("\n")
-        except Exception:
+        except Exception: 
             pass
         images = page.get_images(full=True)
         for image_idx, image in enumerate(images, start=1):
@@ -45,7 +43,6 @@ def extract_pdf(pdf_path: str,describe_image) -> str:
     return "\n".join(output)
 
 def ingest_pdf(pdf_path: str) -> pl.DataFrame:
-    """ Extracts numeric data from tables and returns DataFrame with 'price' column """
     try:
         import pymupdf as fitz
     except ImportError:
@@ -69,13 +66,11 @@ def ingest_pdf(pdf_path: str) -> pl.DataFrame:
                             if cleaned and cleaned.count('.') <= 1:
                                 try:
                                     price = float(cleaned)
-                                    if price > 0:  # Only positive prices
-                                        prices.append(price)
+                                    if price > 0: prices.append(price)
                                 except ValueError:
                                     continue
         except Exception:
             pass
     doc.close()
-    if not prices:
-        raise ValueError("No numeric price data found in PDF tables")
+    if not prices: raise ValueError("No numeric price data found in PDF tables")
     return pl.DataFrame({"price": prices})

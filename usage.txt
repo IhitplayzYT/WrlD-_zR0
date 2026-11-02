@@ -91,3 +91,30 @@ Multi-stock simulation with short episode length:
 
 Using a JSON configuration file:
     python3 src/main.py -c=config.json -d
+
+
+8. EVENT / BBOX OPTIONS (see docs/FIXES.md):
+   --event_impact=jump|ramp
+       'jump' (default) delivers an event's price news at onset. 'ramp' is the legacy model that
+       spreads the drift over the duration; policies learn to exploit it. Reproduction only.
+
+   --no_bbox_villain_points
+       Disable the default: the black-box winner (Kaiser), when adversarial, earns villain points (+1 per win, cap 20).
+
+   --no_kaiser_effects
+       Switch off every Kaiser channel (herding, adversary targeting and bonus, policy inputs).
+
+   --event_choice=prior|learned|heuristic
+       Adversary event selection: scoring rule as a learnable logit prior (default), pure policy, or legacy override.
+
+   --lp_max_inventory=N
+       Finite liquidity-provider inventory in shares (default 5000; 0 = unlimited).
+
+   --curriculum_bbox
+       Use each curriculum level's black-box period (50/30/20/15) instead of --bbox_freq.
+
+   --eval_episodes=N
+       Held-out episodes per frozen evaluation (default 3). Results include spread and per-episode values.
+
+   --adversary_max_position=X
+       Adversary single-asset position cap (default 0.3, same as ordinary agents; the legacy value was 0.6).
